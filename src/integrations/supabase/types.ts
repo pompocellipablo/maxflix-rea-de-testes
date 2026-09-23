@@ -14,7 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      clients: {
+        Row: {
+          cost: number
+          created_at: string
+          due_date: string
+          financial_due_date: string | null
+          id: string
+          login: string
+          name: string
+          paid: number
+          prev_cost: number
+          prev_paid: number
+          server: string
+          updated_at: string
+          whatsapp: string | null
+        }
+        Insert: {
+          cost?: number
+          created_at?: string
+          due_date: string
+          financial_due_date?: string | null
+          id?: string
+          login: string
+          name: string
+          paid?: number
+          prev_cost?: number
+          prev_paid?: number
+          server: string
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Update: {
+          cost?: number
+          created_at?: string
+          due_date?: string
+          financial_due_date?: string | null
+          id?: string
+          login?: string
+          name?: string
+          paid?: number
+          prev_cost?: number
+          prev_paid?: number
+          server?: string
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
+      settings: {
+        Row: {
+          id: string
+          updated_at: string
+          whatsapp_template: string
+        }
+        Insert: {
+          id?: string
+          updated_at?: string
+          whatsapp_template?: string
+        }
+        Update: {
+          id?: string
+          updated_at?: string
+          whatsapp_template?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
