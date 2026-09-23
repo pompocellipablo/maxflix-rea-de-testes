@@ -87,18 +87,20 @@ function Painel() {
   const invalidate = () => qc.invalidateQueries({ queryKey: ["clients"] });
 
   const saveMutation = useMutation({
-    mutationFn: async ({ draft, id }: { draft: ClientDraft; id?: string }) => {
+    mutationFn: async ({ draft, id }: { draft: ClientDraft; id: string | null }) => {
+      const cost = num(draft.cost);
+      const paid = num(draft.paid);
       const payload = {
         name: draft.name.trim(),
         login: draft.login.trim(),
         server: draft.server,
-        cost: num(draft.cost),
-        paid: num(draft.paid),
+        cost,
+        paid,
         due_date: draft.due_date,
         financial_due_date: draft.financial_due_date || null,
         whatsapp: draft.whatsapp.trim() || null,
-        prev_cost: num(draft.cost) || undefined,
-        prev_paid: num(draft.paid) || undefined,
+        prev_cost: cost,
+        prev_paid: paid,
       };
       if (id) {
         const { error } = await supabase.from("clients").update(payload).eq("id", id);
@@ -116,12 +118,19 @@ function Painel() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, patch }: { id: string; patch: Record<string, unknown> }) => {
+    mutationFn: async ({
+      id,
+      patch,
+    }: {
+      id: string;
+      patch: { due_date?: string; cost?: number; paid?: number };
+    }) => {
       const { error } = await supabase.from("clients").update(patch).eq("id", id);
       if (error) throw error;
     },
     onSuccess: invalidate,
   });
+
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
