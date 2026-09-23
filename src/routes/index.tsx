@@ -189,7 +189,6 @@ function Painel() {
         else if (s.key === "breve") proximos += 1;
         else ativos += 1;
       }
-      if (s.days > 0 && s.days <= 5) proximos = proximos;
     }
     return { total: clients.length, ativos, vencidos, hoje, proximos, lucro };
   }, [clients]);
