@@ -601,6 +601,14 @@ function Painel() {
         />
       )}
 
+      {importOpen && (
+        <ImportDialog
+          saving={importMutation.isPending}
+          onClose={() => setImportOpen(false)}
+          onImport={(rows) => importMutation.mutate(rows)}
+        />
+      )}
+
       {settingsOpen && (
         <TemplateDialog
           value={template}
