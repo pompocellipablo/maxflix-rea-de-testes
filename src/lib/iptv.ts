@@ -30,13 +30,13 @@ export const SERVER_COSTS: Record<string, number | null> = {
   Elite: 10,
   Now: 8.5,
   Five: 6.5,
-  Uniplay: null,
-  UniP2P: null,
-  Fast: null,
-  "All Play": null,
-  GF: null,
-  Blade: null,
-  Club: null,
+  Uniplay: 6,
+  UniP2P: 6,
+  Fast: 6,
+  "All Play": 6,
+  GF: 6,
+  Blade: 6,
+  Club: 6,
 };
 
 export const DEFAULT_TEMPLATE =
