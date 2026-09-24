@@ -278,6 +278,12 @@ function Painel() {
               Mensagem
             </button>
             <button
+              onClick={() => setImportOpen(true)}
+              className="font-display rounded-xl bg-panel px-3 py-2 text-sm font-medium text-mist ring-1 ring-line hover:bg-frost/5"
+            >
+              Importar
+            </button>
+            <button
               onClick={() => {
                 setEditing(null);
                 setFormOpen(true);
