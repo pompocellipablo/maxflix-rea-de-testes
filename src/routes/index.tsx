@@ -559,7 +559,7 @@ function Painel() {
             setFormOpen(false);
             setEditing(null);
           }}
-          onSave={(draft) => saveMutation.mutate({ draft, id: editing?.id })}
+          onSave={(draft) => saveMutation.mutate({ draft, id: editing?.id ?? null })}
         />
       )}
 
