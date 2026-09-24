@@ -18,13 +18,14 @@ import {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "NimbusPainel — Gestão de clientes IPTV" },
+      { title: "MaxFlix — Gestão de clientes IPTV" },
+
       {
         name: "description",
         content:
           "Painel para gerenciar clientes IPTV: vencimentos, renovações, lucro e mensagens de cobrança no WhatsApp.",
       },
-      { property: "og:title", content: "NimbusPainel — Gestão de clientes IPTV" },
+      { property: "og:title", content: "MaxFlix — Gestão de clientes IPTV" },
       {
         property: "og:description",
         content:
@@ -255,7 +256,7 @@ function Painel() {
             </div>
             <div className="min-w-0 leading-none">
               <p className="font-display truncate text-base font-semibold">
-                Nimbus<span className="text-cyan">Painel</span>
+                Max<span className="text-cyan">Flix</span>
               </p>
               <p className="mt-1 text-[11px] tracking-wide text-mist">Gestão de clientes IPTV</p>
             </div>
