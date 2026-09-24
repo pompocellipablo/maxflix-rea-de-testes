@@ -49,7 +49,36 @@ function Painel() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Client | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+
+  const importMutation = useMutation({
+    mutationFn: async (rows: ImportRow[]) => {
+      const payload = rows.map((r) => ({
+        name: r.name,
+        login: r.login,
+        server: r.server,
+        cost: r.cost,
+        paid: r.paid,
+        due_date: r.due_date,
+        financial_due_date: r.financial_due_date,
+        whatsapp: r.whatsapp,
+        prev_cost: r.cost,
+        prev_paid: r.paid,
+      }));
+      for (let i = 0; i < payload.length; i += 200) {
+        const { error } = await supabase.from("clients").insert(payload.slice(i, i + 200));
+        if (error) throw error;
+      }
+      return payload.length;
+    },
+    onSuccess: (count) => {
+      setImportOpen(false);
+      setNotice(`${count} cliente(s) importados com sucesso.`);
+      invalidate();
+    },
+    onError: (error: Error) => setNotice(`Falha na importação: ${error.message}`),
+  });
 
   const clientsQuery = useQuery({
     queryKey: ["clients"],
