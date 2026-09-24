@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ClientForm, type ClientDraft } from "@/components/ClientForm";
 import { StatusBadge } from "@/components/StatusBadge";
+import { ImportDialog } from "@/components/ImportDialog";
+import type { ImportRow } from "@/lib/import-clients";
 import {
   DEFAULT_TEMPLATE,
   formatBRL,
