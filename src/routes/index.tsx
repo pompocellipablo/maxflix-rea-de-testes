@@ -282,13 +282,32 @@ function Painel() {
         if (tab === "vencidos" && s.key !== "vencido") return false;
         if (tab === "hoje" && s.key !== "hoje") return false;
         if (tab === "breve" && s.days !== range) return false;
+        if (tab === "cobranca" && s.key !== "vencido" && s.key !== "hoje" && s.key !== "breve")
+          return false;
+        if (serverFilter !== "todos" && c.server !== serverFilter) return false;
         if (term && !`${c.name} ${c.login}`.toLowerCase().includes(term)) return false;
         return true;
       })
       .sort((a, b) =>
         asc ? a.due_date.localeCompare(b.due_date) : b.due_date.localeCompare(a.due_date),
       );
-  }, [clients, tab, range, search, asc]);
+  }, [clients, tab, range, search, serverFilter, asc]);
+
+  const monthlyBilling = useMemo(() => {
+    const map = new Map<string, { faturado: number; custo: number; count: number }>();
+    for (const p of payments) {
+      const key = p.paid_at.slice(0, 7); // YYYY-MM
+      const entry = map.get(key) ?? { faturado: 0, custo: 0, count: 0 };
+      entry.faturado += p.amount;
+      entry.custo += p.cost;
+      entry.count += 1;
+      map.set(key, entry);
+    }
+    return [...map.entries()]
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .slice(0, 6)
+      .map(([month, v]) => ({ month, ...v, lucro: v.faturado - v.custo }));
+  }, [payments]);
 
   const exportCSV = () => {
     const blob = new Blob([`\uFEFF${toCSV(filtered)}`], { type: "text/csv;charset=utf-8;" });
@@ -305,7 +324,16 @@ function Painel() {
     { key: "vencidos", label: "Vencidos" },
     { key: "hoje", label: "Vence hoje" },
     { key: "breve", label: "Vencendo em breve" },
+    { key: "cobranca", label: "Fila de cobrança" },
   ];
+
+  const monthLabel = (ym: string) => {
+    const [y, m] = ym.split("-").map(Number);
+    return new Date(y ?? 1970, (m ?? 1) - 1, 1).toLocaleDateString("pt-BR", {
+      month: "long",
+      year: "numeric",
+    });
+  };
 
   const tabBtn = (active: boolean) =>
     `font-display text-sm font-medium px-3 py-1.5 rounded-lg ${
