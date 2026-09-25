@@ -789,6 +789,14 @@ function Painel() {
           }}
         />
       )}
+
+      {renewing && (
+        <RenewDialog
+          client={renewing}
+          onCancel={() => setRenewing(null)}
+          onConfirm={(opts) => confirmRenew(renewing, opts)}
+        />
+      )}
     </div>
   );
 }
