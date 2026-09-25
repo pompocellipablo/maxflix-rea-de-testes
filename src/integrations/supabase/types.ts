@@ -62,6 +62,47 @@ export type Database = {
         }
         Relationships: []
       }
+      payments: {
+        Row: {
+          amount: number
+          client_id: string | null
+          client_name: string
+          cost: number
+          created_at: string
+          id: string
+          paid_at: string
+          server: string
+        }
+        Insert: {
+          amount?: number
+          client_id?: string | null
+          client_name: string
+          cost?: number
+          created_at?: string
+          id?: string
+          paid_at?: string
+          server: string
+        }
+        Update: {
+          amount?: number
+          client_id?: string | null
+          client_name?: string
+          cost?: number
+          created_at?: string
+          id?: string
+          paid_at?: string
+          server?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       settings: {
         Row: {
           id: string

@@ -120,15 +120,15 @@ export function formatDate(value: string | null): string {
   return parseDate(value).toLocaleDateString("pt-BR");
 }
 
-/** Next monthly cycle from the current due date, rolled forward past today. */
+/**
+ * Next monthly cycle. If the client is still active (due today or later),
+ * adds 1 month to the current due date. If already expired, the new cycle
+ * starts from the renewal day (today + 1 month).
+ */
 export function nextDueDate(dueDate: string, base = today()): string {
-  let next = addMonths(parseDate(dueDate), 1);
-  let guard = 0;
-  while (next.getTime() < base.getTime() && guard < 120) {
-    next = addMonths(next, 1);
-    guard += 1;
-  }
-  return toISODate(next);
+  const due = parseDate(dueDate);
+  const start = due.getTime() < base.getTime() ? base : due;
+  return toISODate(addMonths(start, 1));
 }
 
 export function whatsappLink(client: Client, template: string): string {

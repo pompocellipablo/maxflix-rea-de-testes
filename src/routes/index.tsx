@@ -8,6 +8,7 @@ import { ImportDialog } from "@/components/ImportDialog";
 import type { ImportRow } from "@/lib/import-clients";
 import {
   DEFAULT_TEMPLATE,
+  SERVERS,
   formatBRL,
   formatDate,
   getStatus,
@@ -38,7 +39,16 @@ export const Route = createFileRoute("/")({
   component: Painel,
 });
 
-type Tab = "todos" | "vencidos" | "hoje" | "breve";
+type Tab = "todos" | "vencidos" | "hoje" | "breve" | "cobranca";
+
+type Payment = {
+  id: string;
+  client_name: string;
+  server: string;
+  amount: number;
+  cost: number;
+  paid_at: string;
+};
 
 const num = (value: string) => Number(String(value).replace(",", ".")) || 0;
 
@@ -47,6 +57,7 @@ function Painel() {
   const [tab, setTab] = useState<Tab>("todos");
   const [range, setRange] = useState(5);
   const [search, setSearch] = useState("");
+  const [serverFilter, setServerFilter] = useState("todos");
   const [asc, setAsc] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Client | null>(null);
@@ -113,8 +124,25 @@ function Painel() {
     },
   });
 
+  const paymentsQuery = useQuery({
+    queryKey: ["payments"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("payments")
+        .select("*")
+        .order("paid_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map((p) => ({
+        ...p,
+        amount: Number(p.amount),
+        cost: Number(p.cost),
+      })) as Payment[];
+    },
+  });
+
   const template = settingsQuery.data ?? DEFAULT_TEMPLATE;
   const clients = useMemo(() => clientsQuery.data ?? [], [clientsQuery.data]);
+  const payments = useMemo(() => paymentsQuery.data ?? [], [paymentsQuery.data]);
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["clients"] });
 
@@ -199,6 +227,8 @@ function Painel() {
     const newDue = nextDueDate(client.due_date);
     const status = getStatus(client);
     const restore = status.key === "vencido" && client.cost === 0 && client.paid === 0;
+    const paidAmount = restore ? client.prev_paid : client.paid;
+    const costAmount = restore ? client.prev_cost : client.cost;
     updateMutation.mutate({
       id: client.id,
       patch: {
@@ -206,7 +236,18 @@ function Painel() {
         ...(restore ? { cost: client.prev_cost, paid: client.prev_paid } : {}),
       },
     });
-    if (client.financial_due_date && client.financial_due_date >= newDue) {
+    const coveredByPackage = client.financial_due_date && client.financial_due_date >= newDue;
+    if (!coveredByPackage && paidAmount > 0) {
+      void supabase.from("payments").insert({
+        client_id: client.id,
+        client_name: client.name,
+        server: client.server,
+        amount: paidAmount,
+        cost: costAmount,
+      });
+      qc.invalidateQueries({ queryKey: ["payments"] });
+    }
+    if (coveredByPackage) {
       setNotice(
         `Renovação sem custo — pacote pago até ${formatDate(client.financial_due_date)} (${client.name})`,
       );
@@ -242,13 +283,32 @@ function Painel() {
         if (tab === "vencidos" && s.key !== "vencido") return false;
         if (tab === "hoje" && s.key !== "hoje") return false;
         if (tab === "breve" && s.days !== range) return false;
+        if (tab === "cobranca" && s.key !== "vencido" && s.key !== "hoje" && s.key !== "breve")
+          return false;
+        if (serverFilter !== "todos" && c.server !== serverFilter) return false;
         if (term && !`${c.name} ${c.login}`.toLowerCase().includes(term)) return false;
         return true;
       })
       .sort((a, b) =>
         asc ? a.due_date.localeCompare(b.due_date) : b.due_date.localeCompare(a.due_date),
       );
-  }, [clients, tab, range, search, asc]);
+  }, [clients, tab, range, search, serverFilter, asc]);
+
+  const monthlyBilling = useMemo(() => {
+    const map = new Map<string, { faturado: number; custo: number; count: number }>();
+    for (const p of payments) {
+      const key = p.paid_at.slice(0, 7); // YYYY-MM
+      const entry = map.get(key) ?? { faturado: 0, custo: 0, count: 0 };
+      entry.faturado += p.amount;
+      entry.custo += p.cost;
+      entry.count += 1;
+      map.set(key, entry);
+    }
+    return [...map.entries()]
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .slice(0, 6)
+      .map(([month, v]) => ({ month, ...v, lucro: v.faturado - v.custo }));
+  }, [payments]);
 
   const exportCSV = () => {
     const blob = new Blob([`\uFEFF${toCSV(filtered)}`], { type: "text/csv;charset=utf-8;" });
@@ -265,7 +325,16 @@ function Painel() {
     { key: "vencidos", label: "Vencidos" },
     { key: "hoje", label: "Vence hoje" },
     { key: "breve", label: "Vencendo em breve" },
+    { key: "cobranca", label: "Fila de cobrança" },
   ];
+
+  const monthLabel = (ym: string) => {
+    const [y, m] = ym.split("-").map(Number);
+    return new Date(y ?? 1970, (m ?? 1) - 1, 1).toLocaleDateString("pt-BR", {
+      month: "long",
+      year: "numeric",
+    });
+  };
 
   const tabBtn = (active: boolean) =>
     `font-display text-sm font-medium px-3 py-1.5 rounded-lg ${
@@ -389,6 +458,18 @@ function Painel() {
             ))}
           </nav>
           <div className="flex items-center gap-2 sm:ml-auto">
+            <select
+              value={serverFilter}
+              onChange={(e) => setServerFilter(e.target.value)}
+              className="font-display rounded-xl bg-panel px-3 py-2 text-sm font-medium text-mist ring-1 ring-line outline-none hover:bg-frost/5"
+            >
+              <option value="todos" className="bg-panel">Todos os servidores</option>
+              {SERVERS.map((s) => (
+                <option key={s} value={s} className="bg-panel">
+                  {s}
+                </option>
+              ))}
+            </select>
             {tab === "breve" && (
               <>
                 <span className="hidden text-xs text-mist sm:inline">Vence em</span>
@@ -586,6 +667,31 @@ function Painel() {
               })}
             </section>
           </>
+        )}
+
+        {monthlyBilling.length > 0 && (
+          <section className="mt-8 rounded-2xl bg-panel/60 p-5 ring-1 ring-line backdrop-blur-sm">
+            <h2 className="font-display text-base font-semibold">Faturamento por mês</h2>
+            <p className="mt-1 text-xs text-mist">Renovações registradas no painel.</p>
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              {monthlyBilling.map((m) => (
+                <div key={m.month} className="rounded-xl bg-panel p-4 ring-1 ring-line">
+                  <p className="text-[11px] tracking-wide text-mist uppercase">
+                    {monthLabel(m.month)}
+                  </p>
+                  <p className="font-display mt-2 text-lg leading-none font-semibold text-cyan">
+                    {formatBRL(m.faturado)}
+                  </p>
+                  <p className="mt-2 text-xs text-mist">
+                    {m.count} renovações · lucro{" "}
+                    <span className={m.lucro >= 0 ? "text-ok" : "text-danger"}>
+                      {formatBRL(m.lucro)}
+                    </span>
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
         )}
       </div>
 
