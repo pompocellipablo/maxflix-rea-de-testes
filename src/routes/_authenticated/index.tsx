@@ -89,10 +89,12 @@ function Painel() {
   const [forecastOpen, setForecastOpen] = useState(false);
   const [serverReportOpen, setServerReportOpen] = useState(false);
   const [financialsHidden, setFinancialsHidden] = useState(false);
+  const [financialsReady, setFinancialsReady] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     setFinancialsHidden(window.localStorage.getItem("maxflix-hide-financials") === "true");
+    setFinancialsReady(true);
   }, []);
 
   const toggleFinancials = () => {
@@ -103,7 +105,7 @@ function Painel() {
     });
   };
 
-  const money = (value: number) => financialsHidden ? "••••••" : formatBRL(value);
+  const money = (value: number) => !financialsReady || financialsHidden ? "••••••" : formatBRL(value);
 
   const importMutation = useMutation({
     mutationFn: async (rows: ImportRow[]) => {
@@ -1123,7 +1125,7 @@ function ForecastDialog({ entries, financialsHidden, onClose }: { entries: Forec
         </div>
 
         <p className="mt-4 text-xs leading-relaxed text-mist">
-          Os períodos são acumulados. Clientes com pacote já pago entram com receita de R$ 0,00 e mantêm o custo do servidor.
+          Os períodos são acumulados. Clientes com pacote já pago entram com receita zerada e mantêm o custo do servidor.
         </p>
       </section>
     </div>
