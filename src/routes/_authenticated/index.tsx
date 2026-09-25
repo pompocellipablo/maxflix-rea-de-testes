@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,7 +25,7 @@ import {
   type Client,
 } from "@/lib/iptv";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
     meta: [
       { title: "MaxFlix — Gestão de clientes IPTV" },
@@ -41,6 +41,8 @@ export const Route = createFileRoute("/")({
         content:
           "Controle vencimentos, status automáticos, lucro e renovações dos seus clientes IPTV em um só painel.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: Painel,
@@ -68,10 +70,13 @@ type ForecastEntry = {
   packageCovered: boolean;
 };
 
+type ServerPeriod = 0 | 5 | 10;
+
 const num = (value: string) => Number(String(value).replace(",", ".")) || 0;
 
 function Painel() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>("todos");
   const [range, setRange] = useState(1);
   const [search, setSearch] = useState("");
@@ -82,6 +87,7 @@ function Painel() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [forecastOpen, setForecastOpen] = useState(false);
+  const [serverReportOpen, setServerReportOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
   const importMutation = useMutation({
@@ -408,6 +414,35 @@ function Painel() {
     [clients],
   );
 
+  const serverReport = useMemo(
+    () =>
+      SERVERS.map((server) => {
+        const serverClients = clients.filter((client) => client.server === server);
+        const renewals = (days: ServerPeriod) =>
+          serverClients.filter((client) => {
+            const remaining = daysUntil(client.due_date);
+            return remaining >= 0 && remaining <= days;
+          });
+        return {
+          server,
+          total: serverClients.length,
+          active: serverClients.filter((client) => getStatus(client).key !== "vencido").length,
+          expired: serverClients.filter((client) => getStatus(client).key === "vencido").length,
+          today: renewals(0),
+          fiveDays: renewals(5),
+          tenDays: renewals(10),
+        };
+      }).filter((item) => item.total > 0),
+    [clients],
+  );
+
+  const signOut = async () => {
+    await qc.cancelQueries();
+    qc.clear();
+    await supabase.auth.signOut();
+    await navigate({ to: "/auth", replace: true });
+  };
+
   const exportCSV = () => {
     const blob = new Blob([`\uFEFF${toCSV(filtered)}`], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -450,7 +485,7 @@ function Painel() {
         <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 sm:flex">
           <div className="flex min-w-0 items-center gap-3">
             <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-cyan/15 ring-1 ring-cyan/30">
-              <span className="font-display text-sm font-semibold text-cyan">N</span>
+               <span className="font-display text-sm font-semibold text-cyan">M</span>
             </div>
             <div className="min-w-0 leading-none">
               <p className="font-display truncate text-base font-semibold">
@@ -476,6 +511,12 @@ function Painel() {
               Previsão de lucro
             </button>
             <button
+              onClick={() => setServerReportOpen(true)}
+              className="font-display hidden rounded-xl bg-panel px-3 py-2 text-sm font-medium text-cyan ring-1 ring-cyan/30 hover:bg-cyan/10 lg:block"
+            >
+              Servidores
+            </button>
+            <button
               onClick={() => setSettingsOpen(true)}
               className="font-display rounded-xl bg-panel px-3 py-2 text-sm font-medium text-mist ring-1 ring-line hover:bg-frost/5"
             >
@@ -498,6 +539,13 @@ function Painel() {
                 <span className="text-base leading-none">+</span> Novo cliente
               </span>
             </button>
+            <button
+              onClick={signOut}
+              className="font-display rounded-xl bg-panel px-3 py-2 text-sm font-medium text-mist ring-1 ring-line hover:text-danger"
+              aria-label="Sair do painel"
+            >
+              Sair
+            </button>
           </div>
         </header>
 
@@ -508,12 +556,10 @@ function Painel() {
             className="w-full rounded-xl bg-panel px-3 py-2.5 text-sm text-frost ring-1 ring-line outline-none placeholder:text-mist/60"
             placeholder="Buscar por nome ou login"
           />
-          <button
-            onClick={() => setForecastOpen(true)}
-            className="font-display mt-3 w-full rounded-xl bg-cyan/10 px-3 py-2.5 text-sm font-semibold text-cyan ring-1 ring-cyan/30"
-          >
-            Previsão de lucro
-          </button>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button onClick={() => setForecastOpen(true)} className="font-display rounded-xl bg-cyan/10 px-3 py-2.5 text-sm font-semibold text-cyan ring-1 ring-cyan/30">Previsão de lucro</button>
+            <button onClick={() => setServerReportOpen(true)} className="font-display rounded-xl bg-panel px-3 py-2.5 text-sm font-semibold text-cyan ring-1 ring-cyan/30">Servidores</button>
+          </div>
         </div>
 
         <div className="mt-4 hidden sm:block lg:hidden">
@@ -857,6 +903,70 @@ function Painel() {
       {forecastOpen && (
         <ForecastDialog entries={forecastEntries} onClose={() => setForecastOpen(false)} />
       )}
+
+      {serverReportOpen && (
+        <ServerReportDialog report={serverReport} onClose={() => setServerReportOpen(false)} />
+      )}
+    </div>
+  );
+}
+
+function ServerReportDialog({ report, onClose }: { report: Array<{
+  server: string;
+  total: number;
+  active: number;
+  expired: number;
+  today: Client[];
+  fiveDays: Client[];
+  tenDays: Client[];
+}>; onClose: () => void }) {
+  const [period, setPeriod] = useState<ServerPeriod>(5);
+  const periods: { value: ServerPeriod; label: string }[] = [
+    { value: 0, label: "Hoje" },
+    { value: 5, label: "Até 5 dias" },
+    { value: 10, label: "Até 10 dias" },
+  ];
+  const selectedClients = (item: (typeof report)[number]) =>
+    period === 0 ? item.today : period === 5 ? item.fiveDays : item.tenDays;
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-background/85 p-4 backdrop-blur-sm">
+      <section className="mx-auto my-6 max-w-4xl rounded-2xl bg-panel2/95 p-5 ring-1 ring-line sm:p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="font-display text-xl font-semibold">Renovações por servidor</h2>
+            <p className="mt-1 text-sm text-mist">Quantidade de clientes e vencimentos calculados com os dados atuais.</p>
+          </div>
+          <button onClick={onClose} aria-label="Fechar relatório" className="grid size-9 shrink-0 place-items-center rounded-xl bg-panel text-lg text-mist ring-1 ring-line">×</button>
+        </div>
+
+        <div className="mt-5 flex rounded-xl bg-panel p-1 ring-1 ring-line">
+          {periods.map((item) => <button key={item.value} onClick={() => setPeriod(item.value)} className={`flex-1 rounded-lg px-2 py-2 text-xs font-medium sm:text-sm ${period === item.value ? "bg-cyan/15 text-cyan" : "text-mist"}`}>{item.label}</button>)}
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          {report.map((item) => {
+            const renewals = selectedClients(item);
+            const revenue = renewals.reduce((sum, client) => sum + (isPackageCovered(client) ? 0 : client.paid), 0);
+            const cost = renewals.reduce((sum, client) => sum + client.cost, 0);
+            return (
+              <article key={item.server} className="rounded-xl bg-panel p-4 ring-1 ring-line">
+                <div className="flex items-start justify-between gap-3">
+                  <div><h3 className="font-display font-semibold">{item.server}</h3><p className="mt-1 text-xs text-mist">{item.total} clientes · {item.active} ativos · {item.expired} vencidos</p></div>
+                  <span className="font-display text-2xl font-semibold text-cyan">{renewals.length}</span>
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-2 border-t border-line pt-3 text-xs">
+                  <div><p className="text-mist">Receita</p><p className="mt-1">{formatBRL(revenue)}</p></div>
+                  <div><p className="text-mist">Custo</p><p className="mt-1">{formatBRL(cost)}</p></div>
+                  <div><p className="text-mist">Lucro</p><p className={`mt-1 ${revenue - cost >= 0 ? "text-ok" : "text-danger"}`}>{formatBRL(revenue - cost)}</p></div>
+                </div>
+                {renewals.length > 0 && <details className="mt-3"><summary className="cursor-pointer text-xs text-cyan">Ver clientes</summary><div className="mt-2 space-y-1">{renewals.map((client) => <button key={client.id} onClick={() => { onClose(); }} className="flex w-full items-center justify-between rounded-lg bg-panel2 px-3 py-2 text-left text-xs"><span className="truncate">{client.name}</span><span className="shrink-0 text-mist">{formatDate(client.due_date)}</span></button>)}</div></details>}
+              </article>
+            );
+          })}
+        </div>
+        {report.length === 0 && <p className="py-10 text-center text-sm text-mist">Nenhum servidor com clientes cadastrados.</p>}
+      </section>
     </div>
   );
 }
