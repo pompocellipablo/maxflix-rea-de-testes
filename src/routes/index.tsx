@@ -230,6 +230,25 @@ function Painel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clients]);
 
+  // Clientes com pacote já pago: valor pago do mês fica zerado (nada é cobrado),
+  // mas o custo do crédito do servidor continua sendo descontado.
+  useEffect(() => {
+    const pending = clients.filter(
+      (c) => getStatus(c).key !== "vencido" && isPackageCovered(c) && c.paid > 0,
+    );
+    if (pending.length === 0) return;
+    void (async () => {
+      for (const c of pending) {
+        await supabase
+          .from("clients")
+          .update({ prev_paid: c.paid, paid: 0 })
+          .eq("id", c.id);
+      }
+      invalidate();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clients]);
+
   const [renewing, setRenewing] = useState<Client | null>(null);
 
   const renew = (client: Client) => {
