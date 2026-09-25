@@ -898,6 +898,7 @@ function Painel() {
       {importOpen && (
         <ImportDialog
           saving={importMutation.isPending}
+          financialsHidden={financialsHidden}
           onClose={() => setImportOpen(false)}
           onImport={(rows) => importMutation.mutate(rows)}
         />

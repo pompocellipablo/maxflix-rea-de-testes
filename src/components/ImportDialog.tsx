@@ -9,10 +9,12 @@ import {
 
 export function ImportDialog({
   saving,
+  financialsHidden,
   onClose,
   onImport,
 }: {
   saving: boolean;
+  financialsHidden: boolean;
   onClose: () => void;
   onImport: (rows: ImportRow[]) => void;
 }) {
@@ -112,8 +114,8 @@ export function ImportDialog({
                       <td className="px-3 py-2 text-mist">{r.login}</td>
                       <td className="px-3 py-2 text-mist">{r.server}</td>
                       <td className="px-3 py-2 text-mist">{formatDate(r.due_date)}</td>
-                      <td className="px-3 py-2 text-mist">{formatBRL(r.cost)}</td>
-                      <td className="px-3 py-2 text-mist">{formatBRL(r.paid)}</td>
+                      <td className="px-3 py-2 text-mist">{financialsHidden ? "••••••" : formatBRL(r.cost)}</td>
+                      <td className="px-3 py-2 text-mist">{financialsHidden ? "••••••" : formatBRL(r.paid)}</td>
                     </tr>
                   ))}
                 </tbody>
