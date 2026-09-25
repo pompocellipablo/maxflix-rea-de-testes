@@ -8,6 +8,7 @@ import { ImportDialog } from "@/components/ImportDialog";
 import type { ImportRow } from "@/lib/import-clients";
 import {
   DEFAULT_TEMPLATE,
+  SERVERS,
   formatBRL,
   formatDate,
   getStatus,
@@ -457,6 +458,18 @@ function Painel() {
             ))}
           </nav>
           <div className="flex items-center gap-2 sm:ml-auto">
+            <select
+              value={serverFilter}
+              onChange={(e) => setServerFilter(e.target.value)}
+              className="font-display rounded-xl bg-panel px-3 py-2 text-sm font-medium text-mist ring-1 ring-line outline-none hover:bg-frost/5"
+            >
+              <option value="todos" className="bg-panel">Todos os servidores</option>
+              {SERVERS.map((s) => (
+                <option key={s} value={s} className="bg-panel">
+                  {s}
+                </option>
+              ))}
+            </select>
             {tab === "breve" && (
               <>
                 <span className="hidden text-xs text-mist sm:inline">Vence em</span>
