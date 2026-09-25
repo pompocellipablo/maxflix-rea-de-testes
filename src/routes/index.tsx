@@ -331,9 +331,9 @@ function Painel() {
       if (s.key === "vencido") vencidos += 1;
       else {
         lucro += c.paid - c.cost;
+        ativos += 1;
         if (s.key === "hoje") hoje += 1;
         else if (s.key === "breve") proximos += 1;
-        else ativos += 1;
       }
     }
     return { total: clients.length, ativos, vencidos, hoje, proximos, lucro };
@@ -475,7 +475,7 @@ function Painel() {
           <MetricCard
             label="Ativos"
             value={String(summary.ativos)}
-            hint="acesso vigente"
+            hint="todos não vencidos"
             valueClass="text-ok"
           />
           <MetricCard
