@@ -183,7 +183,14 @@ function Painel() {
       patch,
     }: {
       id: string;
-      patch: { due_date?: string; cost?: number; paid?: number };
+      patch: {
+        due_date?: string;
+        cost?: number;
+        paid?: number;
+        prev_cost?: number;
+        prev_paid?: number;
+        financial_due_date?: string;
+      };
     }) => {
       const { error } = await supabase.from("clients").update(patch).eq("id", id);
       if (error) throw error;
@@ -223,37 +230,69 @@ function Painel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clients]);
 
+  const [renewing, setRenewing] = useState<Client | null>(null);
+
   const renew = (client: Client) => {
     const newDue = nextDueDate(client.due_date);
-    const status = getStatus(client);
-    const restore = status.key === "vencido" && client.cost === 0 && client.paid === 0;
-    const paidAmount = restore ? client.prev_paid : client.paid;
-    const costAmount = restore ? client.prev_cost : client.cost;
-    updateMutation.mutate({
-      id: client.id,
-      patch: {
-        due_date: newDue,
-        ...(restore ? { cost: client.prev_cost, paid: client.prev_paid } : {}),
-      },
-    });
     const coveredByPackage = client.financial_due_date && client.financial_due_date >= newDue;
-    if (!coveredByPackage && paidAmount > 0) {
-      void supabase.from("payments").insert({
-        client_id: client.id,
-        client_name: client.name,
-        server: client.server,
-        amount: paidAmount,
-        cost: costAmount,
-      });
-      qc.invalidateQueries({ queryKey: ["payments"] });
-    }
     if (coveredByPackage) {
+      const restore = client.cost === 0 && client.paid === 0;
+      updateMutation.mutate({
+        id: client.id,
+        patch: {
+          due_date: newDue,
+          ...(restore ? { cost: client.prev_cost, paid: client.prev_paid } : {}),
+        },
+      });
       setNotice(
         `Renovação sem custo — pacote pago até ${formatDate(client.financial_due_date)} (${client.name})`,
       );
-    } else {
-      setNotice(`${client.name}: novo vencimento em ${formatDate(newDue)}`);
+      return;
     }
+    setRenewing(client);
+  };
+
+  const confirmRenew = (
+    client: Client,
+    opts: { months: number; cost: number; paid: number; monthlyCost: number; monthlyPaid: number },
+  ) => {
+    const newDue = nextDueDate(client.due_date);
+    const expired = getStatus(client).key === "vencido";
+    const base = expired ? today() : parseDate(client.due_date);
+    const patch: {
+      due_date: string;
+      cost: number;
+      paid: number;
+      prev_cost: number;
+      prev_paid: number;
+      financial_due_date?: string;
+    } = {
+      due_date: newDue,
+      cost: opts.monthlyCost,
+      paid: opts.monthlyPaid,
+      prev_cost: opts.monthlyCost,
+      prev_paid: opts.monthlyPaid,
+    };
+    if (opts.months > 1) patch.financial_due_date = toISODate(addMonths(base, opts.months));
+    updateMutation.mutate({ id: client.id, patch });
+    if (opts.paid > 0) {
+      void supabase
+        .from("payments")
+        .insert({
+          client_id: client.id,
+          client_name: client.name,
+          server: client.server,
+          amount: opts.paid,
+          cost: opts.cost,
+        })
+        .then(() => qc.invalidateQueries({ queryKey: ["payments"] }));
+    }
+    setRenewing(null);
+    setNotice(
+      opts.months > 1
+        ? `${client.name}: pacote de ${opts.months} meses pago até ${formatDate(patch.financial_due_date ?? null)}`
+        : `${client.name}: novo vencimento em ${formatDate(newDue)}`,
+    );
   };
 
   const summary = useMemo(() => {
