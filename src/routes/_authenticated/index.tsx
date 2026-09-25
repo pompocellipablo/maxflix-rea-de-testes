@@ -88,7 +88,22 @@ function Painel() {
   const [importOpen, setImportOpen] = useState(false);
   const [forecastOpen, setForecastOpen] = useState(false);
   const [serverReportOpen, setServerReportOpen] = useState(false);
+  const [financialsHidden, setFinancialsHidden] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    setFinancialsHidden(window.localStorage.getItem("maxflix-hide-financials") === "true");
+  }, []);
+
+  const toggleFinancials = () => {
+    setFinancialsHidden((hidden) => {
+      const next = !hidden;
+      window.localStorage.setItem("maxflix-hide-financials", String(next));
+      return next;
+    });
+  };
+
+  const money = (value: number) => financialsHidden ? "••••••" : formatBRL(value);
 
   const importMutation = useMutation({
     mutationFn: async (rows: ImportRow[]) => {
@@ -517,6 +532,14 @@ function Painel() {
               Servidores
             </button>
             <button
+              onClick={toggleFinancials}
+              className={`grid size-9 shrink-0 place-items-center rounded-xl ring-1 ${financialsHidden ? "bg-cyan/15 text-cyan ring-cyan/30" : "bg-panel text-mist ring-line hover:text-frost"}`}
+              aria-label={financialsHidden ? "Mostrar valores financeiros" : "Ocultar valores financeiros"}
+              title={financialsHidden ? "Mostrar valores" : "Ocultar valores"}
+            >
+              {financialsHidden ? <EyeOffIcon /> : <EyeIcon />}
+            </button>
+            <button
               onClick={() => setSettingsOpen(true)}
               className="font-display rounded-xl bg-panel px-3 py-2 text-sm font-medium text-mist ring-1 ring-line hover:bg-frost/5"
             >
@@ -605,7 +628,7 @@ function Painel() {
           />
           <MetricCard
             label="Lucro total"
-            value={formatBRL(summary.lucro)}
+            value={money(summary.lucro)}
             hint="clientes não vencidos"
             valueClass="text-cyan text-2xl"
             cardClass="bg-cyan/10 ring-cyan/40"
@@ -723,14 +746,14 @@ function Painel() {
                           <td className="px-4 py-3 text-mist">
                             {formatDate(c.financial_due_date)}
                           </td>
-                          <td className="px-4 py-3 text-right text-mist">{formatBRL(c.cost)}</td>
-                          <td className="px-4 py-3 text-right text-mist">{formatBRL(c.paid)}</td>
+                          <td className="px-4 py-3 text-right text-mist">{money(c.cost)}</td>
+                          <td className="px-4 py-3 text-right text-mist">{money(c.paid)}</td>
                           <td
                             className={`px-4 py-3 text-right font-medium ${
                               c.paid - c.cost > 0 ? "text-ok" : "text-danger"
                             }`}
                           >
-                            {formatBRL(c.paid - c.cost)}
+                            {money(c.paid - c.cost)}
                           </td>
                           <td className="px-4 py-3">
                             <StatusBadge status={status} />
@@ -783,7 +806,7 @@ function Painel() {
                       </div>
                       <div>
                         <p className="text-mist">Pago</p>
-                        <p className="mt-0.5">{formatBRL(c.paid)}</p>
+                        <p className="mt-0.5">{money(c.paid)}</p>
                       </div>
                       <div>
                         <p className="text-mist">Lucro</p>
@@ -792,7 +815,7 @@ function Painel() {
                             c.paid - c.cost > 0 ? "text-ok" : "text-danger"
                           }`}
                         >
-                          {formatBRL(c.paid - c.cost)}
+                          {money(c.paid - c.cost)}
                         </p>
                       </div>
                     </div>
@@ -845,12 +868,12 @@ function Painel() {
                     {monthLabel(m.month)}
                   </p>
                   <p className="font-display mt-2 text-lg leading-none font-semibold text-cyan">
-                    {formatBRL(m.faturado)}
+                    {money(m.faturado)}
                   </p>
                   <p className="mt-2 text-xs text-mist">
                     {m.count} renovações · lucro{" "}
                     <span className={m.lucro >= 0 ? "text-ok" : "text-danger"}>
-                      {formatBRL(m.lucro)}
+                      {money(m.lucro)}
                     </span>
                   </p>
                 </div>
@@ -901,17 +924,17 @@ function Painel() {
       )}
 
       {forecastOpen && (
-        <ForecastDialog entries={forecastEntries} onClose={() => setForecastOpen(false)} />
+        <ForecastDialog entries={forecastEntries} financialsHidden={financialsHidden} onClose={() => setForecastOpen(false)} />
       )}
 
       {serverReportOpen && (
-        <ServerReportDialog report={serverReport} onClose={() => setServerReportOpen(false)} />
+        <ServerReportDialog report={serverReport} financialsHidden={financialsHidden} onClose={() => setServerReportOpen(false)} />
       )}
     </div>
   );
 }
 
-function ServerReportDialog({ report, onClose }: { report: Array<{
+function ServerReportDialog({ report, financialsHidden, onClose }: { report: Array<{
   server: string;
   total: number;
   active: number;
@@ -919,7 +942,7 @@ function ServerReportDialog({ report, onClose }: { report: Array<{
   today: Client[];
   fiveDays: Client[];
   tenDays: Client[];
-}>; onClose: () => void }) {
+}>; financialsHidden: boolean; onClose: () => void }) {
   const [period, setPeriod] = useState<ServerPeriod>(5);
   const periods: { value: ServerPeriod; label: string }[] = [
     { value: 0, label: "Hoje" },
@@ -928,6 +951,7 @@ function ServerReportDialog({ report, onClose }: { report: Array<{
   ];
   const selectedClients = (item: (typeof report)[number]) =>
     period === 0 ? item.today : period === 5 ? item.fiveDays : item.tenDays;
+  const money = (value: number) => financialsHidden ? "••••••" : formatBRL(value);
   const orderedReport = useMemo(
     () =>
       [...report].sort((a, b) => {
@@ -971,9 +995,9 @@ function ServerReportDialog({ report, onClose }: { report: Array<{
                   <span className="font-display text-2xl font-semibold text-cyan">{renewals.length}</span>
                 </div>
                 <div className="mt-3 grid grid-cols-3 gap-2 border-t border-line pt-3 text-xs">
-                  <div><p className="text-mist">Receita</p><p className="mt-1">{formatBRL(revenue)}</p></div>
-                  <div><p className="text-mist">Custo</p><p className="mt-1">{formatBRL(cost)}</p></div>
-                  <div><p className="text-mist">Lucro</p><p className={`mt-1 ${revenue - cost >= 0 ? "text-ok" : "text-danger"}`}>{formatBRL(revenue - cost)}</p></div>
+                  <div><p className="text-mist">Receita</p><p className="mt-1">{money(revenue)}</p></div>
+                  <div><p className="text-mist">Custo</p><p className="mt-1">{money(cost)}</p></div>
+                  <div><p className="text-mist">Lucro</p><p className={`mt-1 ${revenue - cost >= 0 ? "text-ok" : "text-danger"}`}>{money(revenue - cost)}</p></div>
                 </div>
                 {renewals.length > 0 && <details className="mt-3"><summary className="cursor-pointer text-xs text-cyan">Ver clientes</summary><div className="mt-2 space-y-1">{renewals.map((client) => <button key={client.id} onClick={() => { onClose(); }} className="flex w-full items-center justify-between rounded-lg bg-panel2 px-3 py-2 text-left text-xs"><span className="truncate">{client.name}</span><span className="shrink-0 text-mist">{formatDate(client.due_date)}</span></button>)}</div></details>}
               </article>
@@ -986,7 +1010,7 @@ function ServerReportDialog({ report, onClose }: { report: Array<{
   );
 }
 
-function ForecastDialog({ entries, onClose }: { entries: ForecastEntry[]; onClose: () => void }) {
+function ForecastDialog({ entries, financialsHidden, onClose }: { entries: ForecastEntry[]; financialsHidden: boolean; onClose: () => void }) {
   const [period, setPeriod] = useState<ForecastPeriod>(5);
   const periods: { days: ForecastPeriod; label: string }[] = [
     { days: 0, label: "Hoje" },
@@ -1008,6 +1032,7 @@ function ForecastDialog({ entries, onClose }: { entries: ForecastEntry[]; onClos
   };
 
   const selectedEntries = entries.filter((entry) => entry.days <= period);
+  const money = (value: number) => financialsHidden ? "••••••" : formatBRL(value);
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-background/85 p-4 backdrop-blur-sm">
@@ -1040,11 +1065,11 @@ function ForecastDialog({ entries, onClose }: { entries: ForecastEntry[]; onClos
               >
                 <span className="text-[11px] tracking-wide text-mist uppercase">{item.label}</span>
                 <span className={`font-display mt-2 block text-2xl font-semibold ${total.profit >= 0 ? "text-ok" : "text-danger"}`}>
-                  {formatBRL(total.profit)}
+                  {money(total.profit)}
                 </span>
                 <span className="mt-2 block text-xs text-mist">{total.count} clientes previstos</span>
                 <span className="mt-1 block text-xs text-mist">
-                  Receita {formatBRL(total.revenue)} · custo {formatBRL(total.cost)}
+                  Receita {money(total.revenue)} · custo {money(total.cost)}
                 </span>
               </button>
             );
@@ -1079,16 +1104,16 @@ function ForecastDialog({ entries, onClose }: { entries: ForecastEntry[]; onClos
                   <div className="text-right sm:text-left">
                     <p className="text-[10px] text-mist uppercase sm:hidden">Lucro</p>
                     <p className={entry.profit >= 0 ? "text-sm font-medium text-ok" : "text-sm font-medium text-danger"}>
-                      {formatBRL(entry.profit)}
+                      {money(entry.profit)}
                     </p>
                   </div>
                   <div className="hidden sm:block">
                     <p className="text-[10px] text-mist uppercase">Receita</p>
-                    <p className="mt-1 text-sm">{formatBRL(entry.revenue)}</p>
+                    <p className="mt-1 text-sm">{money(entry.revenue)}</p>
                   </div>
                   <div className="hidden sm:block">
                     <p className="text-[10px] text-mist uppercase">Custo</p>
-                    <p className="mt-1 text-sm">{formatBRL(entry.cost)}</p>
+                    <p className="mt-1 text-sm">{money(entry.cost)}</p>
                   </div>
                 </div>
               ))}
