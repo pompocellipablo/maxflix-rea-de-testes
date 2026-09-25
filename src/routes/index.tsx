@@ -9,6 +9,7 @@ import type { ImportRow } from "@/lib/import-clients";
 import {
   DEFAULT_TEMPLATE,
   SERVERS,
+  SERVER_COSTS,
   addMonths,
   formatBRL,
   formatDate,
