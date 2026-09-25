@@ -111,6 +111,16 @@ export function getStatus(client: Client, base = today()): Status {
   return { key: "ativo", label: "Ativo", days };
 }
 
+/**
+ * True when the client already paid a package that covers beyond the current
+ * monthly cycle. In those months the paid amount is 0 (nothing is charged),
+ * but the server credit cost keeps being deducted.
+ */
+export function isPackageCovered(client: Client): boolean {
+  return !!client.financial_due_date && client.financial_due_date > client.due_date;
+}
+
+
 export function formatBRL(value: number): string {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
