@@ -38,7 +38,16 @@ export const Route = createFileRoute("/")({
   component: Painel,
 });
 
-type Tab = "todos" | "vencidos" | "hoje" | "breve";
+type Tab = "todos" | "vencidos" | "hoje" | "breve" | "cobranca";
+
+type Payment = {
+  id: string;
+  client_name: string;
+  server: string;
+  amount: number;
+  cost: number;
+  paid_at: string;
+};
 
 const num = (value: string) => Number(String(value).replace(",", ".")) || 0;
 
@@ -47,6 +56,7 @@ function Painel() {
   const [tab, setTab] = useState<Tab>("todos");
   const [range, setRange] = useState(5);
   const [search, setSearch] = useState("");
+  const [serverFilter, setServerFilter] = useState("todos");
   const [asc, setAsc] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Client | null>(null);
