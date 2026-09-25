@@ -668,6 +668,31 @@ function Painel() {
             </section>
           </>
         )}
+
+        {monthlyBilling.length > 0 && (
+          <section className="mt-8 rounded-2xl bg-panel/60 p-5 ring-1 ring-line backdrop-blur-sm">
+            <h2 className="font-display text-base font-semibold">Faturamento por mês</h2>
+            <p className="mt-1 text-xs text-mist">Renovações registradas no painel.</p>
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              {monthlyBilling.map((m) => (
+                <div key={m.month} className="rounded-xl bg-panel p-4 ring-1 ring-line">
+                  <p className="text-[11px] tracking-wide text-mist uppercase">
+                    {monthLabel(m.month)}
+                  </p>
+                  <p className="font-display mt-2 text-lg leading-none font-semibold text-cyan">
+                    {formatBRL(m.faturado)}
+                  </p>
+                  <p className="mt-2 text-xs text-mist">
+                    {m.count} renovações · lucro{" "}
+                    <span className={m.lucro >= 0 ? "text-ok" : "text-danger"}>
+                      {formatBRL(m.lucro)}
+                    </span>
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
 
       {formOpen && (
