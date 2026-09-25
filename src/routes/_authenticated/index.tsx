@@ -928,6 +928,14 @@ function ServerReportDialog({ report, onClose }: { report: Array<{
   ];
   const selectedClients = (item: (typeof report)[number]) =>
     period === 0 ? item.today : period === 5 ? item.fiveDays : item.tenDays;
+  const orderedReport = useMemo(
+    () =>
+      [...report].sort((a, b) => {
+        const renewalDifference = selectedClients(b).length - selectedClients(a).length;
+        return renewalDifference || a.server.localeCompare(b.server, "pt-BR");
+      }),
+    [period, report],
+  );
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-background/85 p-4 backdrop-blur-sm">
@@ -945,14 +953,21 @@ function ServerReportDialog({ report, onClose }: { report: Array<{
         </div>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          {report.map((item) => {
+          {orderedReport.map((item, index) => {
             const renewals = selectedClients(item);
             const revenue = renewals.reduce((sum, client) => sum + (isPackageCovered(client) ? 0 : client.paid), 0);
             const cost = renewals.reduce((sum, client) => sum + client.cost, 0);
+            const ranked = index < 3 && renewals.length > 0;
             return (
-              <article key={item.server} className="rounded-xl bg-panel p-4 ring-1 ring-line">
+              <article key={item.server} className={`rounded-xl p-4 ring-1 ${ranked ? "bg-cyan/10 ring-cyan/40" : "bg-panel ring-line"}`}>
                 <div className="flex items-start justify-between gap-3">
-                  <div><h3 className="font-display font-semibold">{item.server}</h3><p className="mt-1 text-xs text-mist">{item.total} clientes · {item.active} ativos · {item.expired} vencidos</p></div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      {ranked && <span className="grid size-5 shrink-0 place-items-center rounded-full bg-cyan text-[10px] font-bold text-background">{index + 1}</span>}
+                      <h3 className="font-display font-semibold">{item.server}</h3>
+                    </div>
+                    <p className="mt-1 text-xs text-mist">{item.total} clientes · {item.active} ativos · {item.expired} vencidos</p>
+                  </div>
                   <span className="font-display text-2xl font-semibold text-cyan">{renewals.length}</span>
                 </div>
                 <div className="mt-3 grid grid-cols-3 gap-2 border-t border-line pt-3 text-xs">
