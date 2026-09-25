@@ -9,10 +9,16 @@ import type { ImportRow } from "@/lib/import-clients";
 import {
   DEFAULT_TEMPLATE,
   SERVERS,
+  SERVER_COSTS,
+  addMonths,
   formatBRL,
   formatDate,
   getStatus,
+  isPackageCovered,
   nextDueDate,
+  parseDate,
+  toISODate,
+  today,
   toCSV,
   whatsappLink,
   type Client,
@@ -223,6 +229,25 @@ function Painel() {
             cost: 0,
             paid: 0,
           })
+          .eq("id", c.id);
+      }
+      invalidate();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clients]);
+
+  // Clientes com pacote já pago: valor pago do mês fica zerado (nada é cobrado),
+  // mas o custo do crédito do servidor continua sendo descontado.
+  useEffect(() => {
+    const pending = clients.filter(
+      (c) => getStatus(c).key !== "vencido" && isPackageCovered(c) && c.paid > 0,
+    );
+    if (pending.length === 0) return;
+    void (async () => {
+      for (const c of pending) {
+        await supabase
+          .from("clients")
+          .update({ prev_paid: c.paid, paid: 0 })
           .eq("id", c.id);
       }
       invalidate();
@@ -765,6 +790,14 @@ function Painel() {
           }}
         />
       )}
+
+      {renewing && (
+        <RenewDialog
+          client={renewing}
+          onCancel={() => setRenewing(null)}
+          onConfirm={(opts) => confirmRenew(renewing, opts)}
+        />
+      )}
     </div>
   );
 }
@@ -867,6 +900,121 @@ function TemplateDialog({
           </button>
           <button
             onClick={onClose}
+            className="font-display rounded-xl bg-panel px-4 py-2.5 text-sm font-medium text-mist ring-1 ring-line"
+          >
+            Cancelar
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function RenewDialog({
+  client,
+  onCancel,
+  onConfirm,
+}: {
+  client: Client;
+  onCancel: () => void;
+  onConfirm: (opts: {
+    months: number;
+    cost: number;
+    paid: number;
+    monthlyCost: number;
+    monthlyPaid: number;
+  }) => void;
+}) {
+  const defaultCost = client.cost || client.prev_cost || SERVER_COSTS[client.server] || 0;
+  const defaultPaid = client.paid || client.prev_paid || 0;
+  const [months, setMonths] = useState(1);
+  const [cost, setCost] = useState(String(defaultCost).replace(".", ","));
+  const [paid, setPaid] = useState(String(defaultPaid).replace(".", ","));
+
+  const monthlyCost = num(cost);
+  const paidValue = num(paid);
+  const totalCost = monthlyCost * months;
+  const monthlyPaid = months > 1 ? 0 : paidValue;
+  const newDue = nextDueDate(client.due_date);
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-background/80 p-4 backdrop-blur-sm">
+      <section className="mx-auto mt-10 max-w-md rounded-2xl bg-panel2/90 p-6 ring-1 ring-line">
+        <h2 className="font-display text-xl font-semibold">Renovar {client.name}</h2>
+        <p className="mt-1 text-sm text-mist">
+          Novo vencimento em {formatDate(newDue)} · servidor {client.server}
+        </p>
+
+        <label className="mt-5 block text-xs tracking-wide text-mist uppercase">Pacote</label>
+        <div className="mt-2 flex gap-2">
+          {[1, 3, 6, 12].map((m) => (
+            <button
+              key={m}
+              onClick={() => setMonths(m)}
+              className={`font-display flex-1 rounded-xl py-2 text-sm font-medium ring-1 ${
+                months === m
+                  ? "bg-cyan/15 text-cyan ring-cyan/30"
+                  : "bg-panel text-mist ring-line hover:bg-frost/5"
+              }`}
+            >
+              {m === 1 ? "1 mês" : `${m} meses`}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs tracking-wide text-mist uppercase">
+              Custo do crédito (mês)
+            </label>
+            <input
+              value={cost}
+              onChange={(e) => setCost(e.target.value)}
+              inputMode="decimal"
+              className="mt-2 w-full rounded-xl bg-panel px-3 py-2.5 text-sm text-frost ring-1 ring-line outline-none focus:ring-cyan/50"
+            />
+          </div>
+          <div>
+            <label className="block text-xs tracking-wide text-mist uppercase">
+              {months > 1 ? "Valor do pacote" : "Valor pago"}
+            </label>
+            <input
+              value={paid}
+              onChange={(e) => setPaid(e.target.value)}
+              inputMode="decimal"
+              className="mt-2 w-full rounded-xl bg-panel px-3 py-2.5 text-sm text-frost ring-1 ring-line outline-none focus:ring-cyan/50"
+            />
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-xl bg-panel p-4 text-sm ring-1 ring-line">
+          {months > 1 ? (
+            <p className="text-mist">
+              O valor de <span className="text-frost">{formatBRL(paidValue)}</span> entra uma vez no
+              faturamento. Nos {months - 1} meses seguintes o valor pago fica R$ 0,00 e só o custo do
+              crédito ({formatBRL(monthlyCost)}/mês) é descontado.
+            </p>
+          ) : (
+            <p className="text-mist">
+              Lucro do mês:{" "}
+              <span className={paidValue - monthlyCost >= 0 ? "text-ok" : "text-danger"}>
+                {formatBRL(paidValue - monthlyCost)}
+              </span>
+            </p>
+          )}
+        </div>
+
+        <div className="mt-5 flex gap-3">
+          <button
+            onClick={() =>
+              onConfirm({ months, cost: totalCost, paid: paidValue, monthlyCost, monthlyPaid })
+            }
+            className="font-display rounded-xl bg-cyan px-4 py-2.5 text-sm font-semibold text-background ring-1 ring-cyan/40"
+          >
+            Confirmar renovação
+          </button>
+          <button
+            onClick={onCancel}
             className="font-display rounded-xl bg-panel px-4 py-2.5 text-sm font-medium text-mist ring-1 ring-line"
           >
             Cancelar
