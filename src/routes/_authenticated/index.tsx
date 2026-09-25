@@ -25,7 +25,7 @@ import {
   type Client,
 } from "@/lib/iptv";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
     meta: [
       { title: "MaxFlix — Gestão de clientes IPTV" },
