@@ -61,7 +61,7 @@ const num = (value: string) => Number(String(value).replace(",", ".")) || 0;
 function Painel() {
   const qc = useQueryClient();
   const [tab, setTab] = useState<Tab>("todos");
-  const [range, setRange] = useState(5);
+  const [range, setRange] = useState(1);
   const [search, setSearch] = useState("");
   const [serverFilter, setServerFilter] = useState("todos");
   const [asc, setAsc] = useState(true);
@@ -538,7 +538,7 @@ function Painel() {
               <>
                 <span className="hidden text-xs text-mist sm:inline">Vence em</span>
                 <div className="flex items-center gap-1 rounded-xl bg-panel p-1 ring-1 ring-line">
-                  {[2, 3, 4, 5].map((d) => (
+                  {[1, 2, 3, 4, 5].map((d) => (
                     <button
                       key={d}
                       onClick={() => setRange(d)}
