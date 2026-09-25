@@ -123,8 +123,25 @@ function Painel() {
     },
   });
 
+  const paymentsQuery = useQuery({
+    queryKey: ["payments"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("payments")
+        .select("*")
+        .order("paid_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map((p) => ({
+        ...p,
+        amount: Number(p.amount),
+        cost: Number(p.cost),
+      })) as Payment[];
+    },
+  });
+
   const template = settingsQuery.data ?? DEFAULT_TEMPLATE;
   const clients = useMemo(() => clientsQuery.data ?? [], [clientsQuery.data]);
+  const payments = useMemo(() => paymentsQuery.data ?? [], [paymentsQuery.data]);
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["clients"] });
 
@@ -209,6 +226,8 @@ function Painel() {
     const newDue = nextDueDate(client.due_date);
     const status = getStatus(client);
     const restore = status.key === "vencido" && client.cost === 0 && client.paid === 0;
+    const paidAmount = restore ? client.prev_paid : client.paid;
+    const costAmount = restore ? client.prev_cost : client.cost;
     updateMutation.mutate({
       id: client.id,
       patch: {
@@ -216,7 +235,18 @@ function Painel() {
         ...(restore ? { cost: client.prev_cost, paid: client.prev_paid } : {}),
       },
     });
-    if (client.financial_due_date && client.financial_due_date >= newDue) {
+    const coveredByPackage = client.financial_due_date && client.financial_due_date >= newDue;
+    if (!coveredByPackage && paidAmount > 0) {
+      void supabase.from("payments").insert({
+        client_id: client.id,
+        client_name: client.name,
+        server: client.server,
+        amount: paidAmount,
+        cost: costAmount,
+      });
+      qc.invalidateQueries({ queryKey: ["payments"] });
+    }
+    if (coveredByPackage) {
       setNotice(
         `Renovação sem custo — pacote pago até ${formatDate(client.financial_due_date)} (${client.name})`,
       );
