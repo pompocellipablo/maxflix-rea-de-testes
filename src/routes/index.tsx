@@ -11,6 +11,7 @@ import {
   SERVERS,
   SERVER_COSTS,
   addMonths,
+  daysUntil,
   formatBRL,
   formatDate,
   getStatus,
@@ -56,6 +57,17 @@ type Payment = {
   paid_at: string;
 };
 
+type ForecastPeriod = 0 | 5 | 10;
+
+type ForecastEntry = {
+  client: Client;
+  days: number;
+  revenue: number;
+  cost: number;
+  profit: number;
+  packageCovered: boolean;
+};
+
 const num = (value: string) => Number(String(value).replace(",", ".")) || 0;
 
 function Painel() {
@@ -69,6 +81,7 @@ function Painel() {
   const [editing, setEditing] = useState<Client | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [forecastOpen, setForecastOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
   const importMutation = useMutation({
@@ -374,6 +387,27 @@ function Painel() {
       .map(([month, v]) => ({ month, ...v, lucro: v.faturado - v.custo }));
   }, [payments]);
 
+  const forecastEntries = useMemo<ForecastEntry[]>(
+    () =>
+      clients
+        .map((client) => {
+          const days = daysUntil(client.due_date);
+          const packageCovered = isPackageCovered(client);
+          const revenue = packageCovered ? 0 : client.paid;
+          return {
+            client,
+            days,
+            revenue,
+            cost: client.cost,
+            profit: revenue - client.cost,
+            packageCovered,
+          };
+        })
+        .filter((entry) => entry.days >= 0 && entry.days <= 10)
+        .sort((a, b) => a.client.due_date.localeCompare(b.client.due_date)),
+    [clients],
+  );
+
   const exportCSV = () => {
     const blob = new Blob([`\uFEFF${toCSV(filtered)}`], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -436,6 +470,12 @@ function Painel() {
               />
             </div>
             <button
+              onClick={() => setForecastOpen(true)}
+              className="font-display hidden rounded-xl bg-panel px-3 py-2 text-sm font-medium text-cyan ring-1 ring-cyan/30 hover:bg-cyan/10 lg:block"
+            >
+              Previsão de lucro
+            </button>
+            <button
               onClick={() => setSettingsOpen(true)}
               className="font-display rounded-xl bg-panel px-3 py-2 text-sm font-medium text-mist ring-1 ring-line hover:bg-frost/5"
             >
@@ -468,6 +508,21 @@ function Painel() {
             className="w-full rounded-xl bg-panel px-3 py-2.5 text-sm text-frost ring-1 ring-line outline-none placeholder:text-mist/60"
             placeholder="Buscar por nome ou login"
           />
+          <button
+            onClick={() => setForecastOpen(true)}
+            className="font-display mt-3 w-full rounded-xl bg-cyan/10 px-3 py-2.5 text-sm font-semibold text-cyan ring-1 ring-cyan/30"
+          >
+            Previsão de lucro
+          </button>
+        </div>
+
+        <div className="mt-4 hidden sm:block lg:hidden">
+          <button
+            onClick={() => setForecastOpen(true)}
+            className="font-display rounded-xl bg-cyan/10 px-3 py-2 text-sm font-semibold text-cyan ring-1 ring-cyan/30"
+          >
+            Previsão de lucro
+          </button>
         </div>
 
         <section className="mt-6 grid grid-cols-2 gap-3 sm:mt-8 sm:grid-cols-3 lg:grid-cols-6">
@@ -798,6 +853,128 @@ function Painel() {
           onConfirm={(opts) => confirmRenew(renewing, opts)}
         />
       )}
+
+      {forecastOpen && (
+        <ForecastDialog entries={forecastEntries} onClose={() => setForecastOpen(false)} />
+      )}
+    </div>
+  );
+}
+
+function ForecastDialog({ entries, onClose }: { entries: ForecastEntry[]; onClose: () => void }) {
+  const [period, setPeriod] = useState<ForecastPeriod>(5);
+  const periods: { days: ForecastPeriod; label: string }[] = [
+    { days: 0, label: "Hoje" },
+    { days: 5, label: "Até 5 dias" },
+    { days: 10, label: "Até 10 dias" },
+  ];
+
+  const summarize = (days: ForecastPeriod) => {
+    const selected = entries.filter((entry) => entry.days <= days);
+    return selected.reduce(
+      (total, entry) => ({
+        count: total.count + 1,
+        revenue: total.revenue + entry.revenue,
+        cost: total.cost + entry.cost,
+        profit: total.profit + entry.profit,
+      }),
+      { count: 0, revenue: 0, cost: 0, profit: 0 },
+    );
+  };
+
+  const selectedEntries = entries.filter((entry) => entry.days <= period);
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-background/85 p-4 backdrop-blur-sm">
+      <section className="mx-auto my-6 max-w-4xl rounded-2xl bg-panel2/95 p-5 ring-1 ring-line sm:p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="font-display text-xl font-semibold">Previsão de lucro</h2>
+            <p className="mt-1 text-sm text-mist">Renovações previstas a partir de hoje.</p>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Fechar previsão"
+            className="grid size-9 shrink-0 place-items-center rounded-xl bg-panel text-lg text-mist ring-1 ring-line hover:text-frost"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          {periods.map((item) => {
+            const total = summarize(item.days);
+            const active = period === item.days;
+            return (
+              <button
+                key={item.days}
+                onClick={() => setPeriod(item.days)}
+                className={`rounded-xl p-4 text-left ring-1 ${
+                  active ? "bg-cyan/10 ring-cyan/40" : "bg-panel ring-line hover:bg-frost/5"
+                }`}
+              >
+                <span className="text-[11px] tracking-wide text-mist uppercase">{item.label}</span>
+                <span className={`font-display mt-2 block text-2xl font-semibold ${total.profit >= 0 ? "text-ok" : "text-danger"}`}>
+                  {formatBRL(total.profit)}
+                </span>
+                <span className="mt-2 block text-xs text-mist">{total.count} clientes previstos</span>
+                <span className="mt-1 block text-xs text-mist">
+                  Receita {formatBRL(total.revenue)} · custo {formatBRL(total.cost)}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-5 overflow-hidden rounded-xl bg-panel ring-1 ring-line">
+          <div className="border-b border-line px-4 py-3">
+            <h3 className="font-display text-sm font-semibold">
+              Clientes — {periods.find((item) => item.days === period)?.label}
+            </h3>
+          </div>
+          {selectedEntries.length === 0 ? (
+            <p className="px-4 py-8 text-center text-sm text-mist">Nenhuma renovação prevista neste período.</p>
+          ) : (
+            <div className="max-h-[46vh] overflow-y-auto">
+              {selectedEntries.map((entry) => (
+                <div
+                  key={entry.client.id}
+                  className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 border-b border-line/70 px-4 py-3 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_110px_110px_110px] sm:items-center"
+                >
+                  <div className="min-w-0">
+                    <p className="font-display truncate text-sm font-medium">{entry.client.name}</p>
+                    <p className="mt-0.5 truncate text-xs text-mist">
+                      {entry.client.server} · {formatDate(entry.client.due_date)}
+                      {entry.days === 0 ? " · hoje" : ` · em ${entry.days} ${entry.days === 1 ? "dia" : "dias"}`}
+                    </p>
+                    {entry.packageCovered && (
+                      <p className="mt-1 text-xs text-warn">Pacote pago: receita zerada, custo mantido</p>
+                    )}
+                  </div>
+                  <div className="text-right sm:text-left">
+                    <p className="text-[10px] text-mist uppercase sm:hidden">Lucro</p>
+                    <p className={entry.profit >= 0 ? "text-sm font-medium text-ok" : "text-sm font-medium text-danger"}>
+                      {formatBRL(entry.profit)}
+                    </p>
+                  </div>
+                  <div className="hidden sm:block">
+                    <p className="text-[10px] text-mist uppercase">Receita</p>
+                    <p className="mt-1 text-sm">{formatBRL(entry.revenue)}</p>
+                  </div>
+                  <div className="hidden sm:block">
+                    <p className="text-[10px] text-mist uppercase">Custo</p>
+                    <p className="mt-1 text-sm">{formatBRL(entry.cost)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <p className="mt-4 text-xs leading-relaxed text-mist">
+          Os períodos são acumulados. Clientes com pacote já pago entram com receita de R$ 0,00 e mantêm o custo do servidor.
+        </p>
+      </section>
     </div>
   );
 }
