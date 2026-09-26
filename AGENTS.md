@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Keep reseller pricing and credit-sale snapshots in separate authenticated tables and a separate protected route; historical margins must survive changes to a reseller's current price and must not mix with client revenue.

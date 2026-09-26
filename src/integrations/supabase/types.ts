@@ -103,6 +103,74 @@ export type Database = {
           },
         ]
       }
+      reseller_sales: {
+        Row: {
+          cost_price: number
+          created_at: string
+          id: string
+          quantity: number
+          reseller_id: string
+          sale_price: number
+          sold_at: string
+          updated_at: string
+        }
+        Insert: {
+          cost_price: number
+          created_at?: string
+          id?: string
+          quantity: number
+          reseller_id: string
+          sale_price: number
+          sold_at?: string
+          updated_at?: string
+        }
+        Update: {
+          cost_price?: number
+          created_at?: string
+          id?: string
+          quantity?: number
+          reseller_id?: string
+          sale_price?: number
+          sold_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reseller_sales_reseller_id_fkey"
+            columns: ["reseller_id"]
+            isOneToOne: false
+            referencedRelation: "resellers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      resellers: {
+        Row: {
+          cost_price: number
+          created_at: string
+          id: string
+          name: string
+          sale_price: number
+          updated_at: string
+        }
+        Insert: {
+          cost_price: number
+          created_at?: string
+          id?: string
+          name: string
+          sale_price: number
+          updated_at?: string
+        }
+        Update: {
+          cost_price?: number
+          created_at?: string
+          id?: string
+          name?: string
+          sale_price?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       settings: {
         Row: {
           id: string

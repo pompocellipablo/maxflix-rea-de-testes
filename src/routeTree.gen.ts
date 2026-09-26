@@ -14,6 +14,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as EsqueciSenhaRouteImport } from './routes/esqueci-senha'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as AuthenticatedRevendedoresRouteImport } from './routes/_authenticated/revendedores'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
@@ -39,17 +40,25 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedRevendedoresRoute =
+  AuthenticatedRevendedoresRouteImport.update({
+    id: '/revendedores',
+    path: '/revendedores',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/auth': typeof AuthRoute
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/revendedores': typeof AuthenticatedRevendedoresRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/revendedores': typeof AuthenticatedRevendedoresRoute
   '/': typeof AuthenticatedIndexRoute
 }
 export interface FileRoutesById {
@@ -58,19 +67,22 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/_authenticated/revendedores': typeof AuthenticatedRevendedoresRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/esqueci-senha' | '/reset-password'
+  fullPaths:
+    '/' | '/auth' | '/esqueci-senha' | '/reset-password' | '/revendedores'
   fileRoutesByTo: FileRoutesByTo
-  to: '/auth' | '/esqueci-senha' | '/reset-password' | '/'
+  to: '/auth' | '/esqueci-senha' | '/reset-password' | '/revendedores' | '/'
   id:
     | '__root__'
     | '/_authenticated'
     | '/auth'
     | '/esqueci-senha'
     | '/reset-password'
+    | '/_authenticated/revendedores'
     | '/_authenticated/'
   fileRoutesById: FileRoutesById
 }
@@ -118,14 +130,23 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/revendedores': {
+      id: '/_authenticated/revendedores'
+      path: '/revendedores'
+      fullPath: '/revendedores'
+      preLoaderRoute: typeof AuthenticatedRevendedoresRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedRevendedoresRoute: typeof AuthenticatedRevendedoresRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedRevendedoresRoute: AuthenticatedRevendedoresRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
 }
 
