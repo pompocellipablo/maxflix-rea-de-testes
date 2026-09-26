@@ -1,10 +1,11 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ClientForm, type ClientDraft } from "@/components/ClientForm";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ImportDialog } from "@/components/ImportDialog";
+import { Button } from "@/components/ui/button";
 import type { ImportRow } from "@/lib/import-clients";
 import {
   DEFAULT_TEMPLATE,
@@ -513,6 +514,9 @@ function Painel() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 xl:ml-auto xl:justify-end">
+            <Button asChild variant="outline" className="border-line bg-panel text-cyan hover:bg-panel2 hover:text-cyan">
+              <Link to="/revendedores">Revendedores</Link>
+            </Button>
             <div className="hidden w-64 items-center gap-2 rounded-xl bg-panel px-3 py-2 ring-1 ring-line sm:flex">
               <span className="text-sm text-mist">⌕</span>
               <input
