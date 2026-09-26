@@ -380,6 +380,7 @@ function Painel() {
     return clients
       .filter((c) => {
         const s = getStatus(c);
+        if (tab === "todos" && s.key === "vencido") return false;
         if (tab === "vencidos" && s.key !== "vencido") return false;
         if (tab === "hoje" && s.key !== "hoje") return false;
         if (tab === "breve" && s.days !== range) return false;
@@ -499,7 +500,7 @@ function Painel() {
       </div>
 
       <div className="relative z-10 mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
-        <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 sm:flex">
+        <header className="flex flex-col gap-4 xl:flex-row xl:items-center">
           <div className="flex min-w-0 items-center gap-3">
             <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-cyan/15 ring-1 ring-cyan/30">
                <span className="font-display text-sm font-semibold text-cyan">M</span>
@@ -511,7 +512,7 @@ function Painel() {
               <p className="mt-1 text-[11px] tracking-wide text-mist">Gestão de clientes IPTV</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 sm:ml-auto">
+          <div className="flex flex-wrap items-center gap-2 xl:ml-auto xl:justify-end">
             <div className="hidden w-64 items-center gap-2 rounded-xl bg-panel px-3 py-2 ring-1 ring-line sm:flex">
               <span className="text-sm text-mist">⌕</span>
               <input
