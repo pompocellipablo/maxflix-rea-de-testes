@@ -633,7 +633,7 @@ function Painel() {
             label="Lucro total"
             value={money(summary.lucro)}
             hint="clientes não vencidos"
-            valueClass="text-cyan text-2xl"
+            valueClass="text-cyan text-[clamp(0.75rem,12cqi,1.5rem)]"
             cardClass="bg-cyan/10 ring-cyan/40"
             labelClass="text-cyan/80"
             hintClass="text-cyan/70"
@@ -1168,9 +1168,9 @@ function MetricCard({
   hintClass?: string;
 }) {
   return (
-    <div className={`rounded-xl p-4 ring-1 ${cardClass}`}>
+    <div className={`@container min-w-0 rounded-xl p-4 ring-1 ${cardClass}`}>
       <p className={`text-[11px] tracking-wide uppercase ${labelClass}`}>{label}</p>
-      <p className={`font-display mt-2 text-3xl leading-none font-semibold ${valueClass}`}>
+      <p className={`font-display mt-2 min-w-0 text-3xl leading-none font-semibold [overflow-wrap:anywhere] ${valueClass}`}>
         {value}
       </p>
       <p className={`mt-2 text-xs ${hintClass}`}>{hint}</p>
