@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { ArrowLeft, Eye, EyeOff, Pencil, Plus, Trash2, X } from "lucide-react";
@@ -20,7 +20,7 @@ const resellerSchema = z.object({
 });
 const saleSchema = z.object({
   reseller_id: z.string().uuid(),
-  sold_at: z.iso?.date?.() ?? z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  sold_at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   quantity: z.coerce.number().int().positive().max(1000000),
   sale_price: moneyInput,
   cost_price: moneyInput,
@@ -63,11 +63,10 @@ function Revendedores() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
-  // The stored visibility preference is only read after hydration.
-  if (typeof window !== "undefined" && !privacyReady) {
-    // Set in an effect below instead of during render to avoid a hydration mismatch.
-  }
-  useMemo(() => undefined, []);
+  useEffect(() => {
+    setHidden(window.localStorage.getItem("maxflix-hide-financials") === "true");
+    setPrivacyReady(true);
+  }, []);
   const resellersQuery = useQuery({
     queryKey: ["resellers"],
     queryFn: async () => {
@@ -263,7 +262,7 @@ function Revendedores() {
 function Stat({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
   return <div className="min-w-0 rounded-md border border-line bg-panel px-4 py-4"><p className="text-xs text-mist">{label}</p><p className={`mt-2 break-all font-display text-lg font-semibold sm:text-xl ${accent ? "text-cyan" : "text-frost"}`}>{value}</p></div>;
 }
-function Dialog({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+function Dialog({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   return <div className="fixed inset-0 z-50 grid place-items-center bg-background/80 px-4 py-6" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
     <section role="dialog" aria-modal="true" aria-label={title} className="max-h-full w-full max-w-md overflow-y-auto rounded-md border border-line bg-panel p-5 shadow-xl">
       <div className="mb-5 flex items-center justify-between gap-3"><h2 className="font-display text-xl font-semibold">{title}</h2><Button size="icon" variant="ghost" onClick={onClose} aria-label="Fechar"><X /></Button></div>
