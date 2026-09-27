@@ -141,6 +141,25 @@ export function nextDueDate(dueDate: string, base = today()): string {
   return toISODate(addMonths(start, 1));
 }
 
+/**
+ * Paid months reuse the existing package credit: the service always moves one
+ * cycle, while financial_due_date marks the end of prepaid coverage. An
+ * overdue renewal starts on the payment day; an early renewal extends from
+ * the current service due date without discarding remaining service time.
+ * Revenue is recorded once in payments on the payment day, not each cycle.
+ */
+export function renewalDates(dueDate: string, months: number, base = today()) {
+  if (!Number.isInteger(months) || months < 1 || months > 120) {
+    throw new RangeError("A quantidade de meses deve ser entre 1 e 120.");
+  }
+  const due = parseDate(dueDate);
+  const start = due.getTime() < base.getTime() ? base : due;
+  return {
+    dueDate: toISODate(addMonths(start, 1)),
+    financialDueDate: toISODate(addMonths(start, months)),
+  };
+}
+
 export function whatsappLink(client: Client, template: string): string {
   const digits = (client.whatsapp ?? "").replace(/\D/g, "");
   const message = template
