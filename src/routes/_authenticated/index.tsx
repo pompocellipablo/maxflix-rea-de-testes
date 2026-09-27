@@ -11,7 +11,6 @@ import {
   DEFAULT_TEMPLATE,
   SERVERS,
   SERVER_COSTS,
-  addMonths,
   daysUntil,
   formatBRL,
   formatDate,
@@ -19,6 +18,7 @@ import {
   isPackageCovered,
   nextDueDate,
   parseDate,
+  renewalDates,
   toISODate,
   today,
   toCSV,
@@ -298,12 +298,13 @@ function Painel() {
     const newDue = nextDueDate(client.due_date);
     const coveredByPackage = client.financial_due_date && client.financial_due_date >= newDue;
     if (coveredByPackage) {
-      const restore = client.cost === 0 && client.paid === 0;
       updateMutation.mutate({
         id: client.id,
         patch: {
           due_date: newDue,
-          ...(restore ? { cost: client.prev_cost, paid: client.prev_paid } : {}),
+          // Consome um ciclo do crédito antecipado; nunca cobra novamente.
+          cost: client.cost || client.prev_cost,
+          paid: 0,
         },
       });
       setNotice(
@@ -318,24 +319,23 @@ function Painel() {
     client: Client,
     opts: { months: number; cost: number; paid: number; monthlyCost: number; monthlyPaid: number },
   ) => {
-    const newDue = nextDueDate(client.due_date);
-    const expired = getStatus(client).key === "vencido";
-    const base = expired ? today() : parseDate(client.due_date);
+    const { dueDate: newDue, financialDueDate } = renewalDates(client.due_date, opts.months);
     const patch: {
       due_date: string;
       cost: number;
       paid: number;
       prev_cost: number;
       prev_paid: number;
-      financial_due_date?: string;
+      financial_due_date: string;
     } = {
       due_date: newDue,
+      financial_due_date: financialDueDate,
       cost: opts.monthlyCost,
       paid: opts.monthlyPaid,
       prev_cost: opts.monthlyCost,
-      prev_paid: opts.monthlyPaid,
+      // Guardar a mensalidade habitual, não o valor integral do adiantamento.
+      prev_paid: opts.months > 1 ? client.prev_paid || client.paid : opts.monthlyPaid,
     };
-    if (opts.months > 1) patch.financial_due_date = toISODate(addMonths(base, opts.months));
     updateMutation.mutate({ id: client.id, patch });
     if (opts.paid > 0) {
       void supabase
@@ -352,7 +352,7 @@ function Painel() {
     setRenewing(null);
     setNotice(
       opts.months > 1
-        ? `${client.name}: pacote de ${opts.months} meses pago até ${formatDate(patch.financial_due_date ?? null)}`
+        ? `${client.name}: pacote de ${opts.months} meses pago até ${formatDate(financialDueDate)}`
         : `${client.name}: novo vencimento em ${formatDate(newDue)}`,
     );
   };
@@ -1287,7 +1287,7 @@ function RenewDialog({
   const paidValue = num(paid);
   const totalCost = monthlyCost * months;
   const monthlyPaid = months > 1 ? 0 : paidValue;
-  const newDue = nextDueDate(client.due_date);
+  const { dueDate: newDue, financialDueDate } = renewalDates(client.due_date, months);
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-background/80 p-4 backdrop-blur-sm">
@@ -1297,22 +1297,38 @@ function RenewDialog({
           Novo vencimento em {formatDate(newDue)} · servidor {client.server}
         </p>
 
-        <label className="mt-5 block text-xs tracking-wide text-mist uppercase">Pacote</label>
+        <label htmlFor="paid-months" className="mt-5 block text-xs tracking-wide text-mist uppercase">Meses pagos</label>
         <div className="mt-2 flex gap-2">
-          {[1, 3, 6, 12].map((m) => (
-            <button
+          {[1, 2, 3, 6, 12].map((m) => (
+            <Button
               key={m}
+              type="button"
+              variant="outline"
               onClick={() => setMonths(m)}
-              className={`font-display flex-1 rounded-xl py-2 text-sm font-medium ring-1 ${
+              className={`font-display min-w-0 flex-1 rounded-xl px-1 py-2 text-sm font-medium ring-1 ${
                 months === m
                   ? "bg-cyan/15 text-cyan ring-cyan/30"
                   : "bg-panel text-mist ring-line hover:bg-frost/5"
               }`}
             >
               {m === 1 ? "1 mês" : `${m} meses`}
-            </button>
+            </Button>
           ))}
         </div>
+        <input
+          id="paid-months"
+          type="number"
+          min={1}
+          max={120}
+          step={1}
+          value={months}
+          onChange={(event) => {
+            const value = Number(event.target.value);
+            if (Number.isInteger(value) && value >= 1 && value <= 120) setMonths(value);
+          }}
+          className="mt-3 w-full rounded-xl bg-panel px-3 py-2.5 text-sm text-frost ring-1 ring-line outline-none focus:ring-cyan/50"
+        />
+        <p className="mt-2 text-xs text-mist">Financeiro até {formatDate(financialDueDate)}</p>
 
         <div className="mt-4 grid grid-cols-2 gap-3">
           <div>
