@@ -17,7 +17,6 @@ import {
   getStatus,
   isPackageCovered,
   nextDueDate,
-  parseDate,
   renewalDates,
   toISODate,
   today,
@@ -346,6 +345,7 @@ function Painel() {
           server: client.server,
           amount: opts.paid,
           cost: opts.cost,
+          paid_at: toISODate(today()),
         })
         .then(() => qc.invalidateQueries({ queryKey: ["payments"] }));
     }
@@ -1285,9 +1285,10 @@ function RenewDialog({
 
   const monthlyCost = num(cost);
   const paidValue = num(paid);
-  const totalCost = monthlyCost * months;
+  const validMonths = Number.isInteger(months) && months >= 1 && months <= 120;
+  const totalCost = monthlyCost * (validMonths ? months : 0);
   const monthlyPaid = months > 1 ? 0 : paidValue;
-  const { dueDate: newDue, financialDueDate } = renewalDates(client.due_date, months);
+  const { dueDate: newDue, financialDueDate } = renewalDates(client.due_date, validMonths ? months : 1);
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-background/80 p-4 backdrop-blur-sm">
@@ -1311,7 +1312,7 @@ function RenewDialog({
                   : "bg-panel text-mist ring-line hover:bg-frost/5"
               }`}
             >
-              {m === 1 ? "1 mês" : `${m} meses`}
+              {m}
             </Button>
           ))}
         </div>
@@ -1324,11 +1325,11 @@ function RenewDialog({
           value={months}
           onChange={(event) => {
             const value = Number(event.target.value);
-            if (Number.isInteger(value) && value >= 1 && value <= 120) setMonths(value);
+            setMonths(value);
           }}
           className="mt-3 w-full rounded-xl bg-panel px-3 py-2.5 text-sm text-frost ring-1 ring-line outline-none focus:ring-cyan/50"
         />
-        <p className="mt-2 text-xs text-mist">Financeiro até {formatDate(financialDueDate)}</p>
+        <p className="mt-2 text-xs text-mist">{validMonths ? `Financeiro até ${formatDate(financialDueDate)}` : "Informe de 1 a 120 meses."}</p>
 
         <div className="mt-4 grid grid-cols-2 gap-3">
           <div>
@@ -1373,20 +1374,24 @@ function RenewDialog({
         </div>
 
         <div className="mt-5 flex gap-3">
-          <button
+          <Button
+            type="button"
+            disabled={!validMonths}
             onClick={() =>
               onConfirm({ months, cost: totalCost, paid: paidValue, monthlyCost, monthlyPaid })
             }
             className="font-display rounded-xl bg-cyan px-4 py-2.5 text-sm font-semibold text-background ring-1 ring-cyan/40"
           >
             Confirmar renovação
-          </button>
-          <button
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
             onClick={onCancel}
             className="font-display rounded-xl bg-panel px-4 py-2.5 text-sm font-medium text-mist ring-1 ring-line"
           >
             Cancelar
-          </button>
+          </Button>
         </div>
       </section>
     </div>

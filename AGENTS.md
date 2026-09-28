@@ -10,3 +10,4 @@
 <!-- LOVABLE:END -->
 
 - Keep reseller pricing and credit-sale snapshots in separate authenticated tables and a separate protected route; historical margins must survive changes to a reseller's current price and must not mix with client revenue.
+- Reuse financial_due_date as prepaid-month credit: overdue renewals anchor both dates to the payment day, early renewals anchor to existing service due date, and payments record revenue only once; this keeps monthly service cycles separate from prepaid coverage.
