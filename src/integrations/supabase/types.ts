@@ -174,16 +174,19 @@ export type Database = {
       settings: {
         Row: {
           id: string
+          overdue_whatsapp_template: string
           updated_at: string
           whatsapp_template: string
         }
         Insert: {
           id?: string
+          overdue_whatsapp_template?: string
           updated_at?: string
           whatsapp_template?: string
         }
         Update: {
           id?: string
+          overdue_whatsapp_template?: string
           updated_at?: string
           whatsapp_template?: string
         }

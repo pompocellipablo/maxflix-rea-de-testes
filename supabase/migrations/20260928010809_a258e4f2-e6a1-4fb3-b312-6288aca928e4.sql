@@ -1,0 +1,1 @@
+ALTER TABLE public.settings ADD COLUMN overdue_whatsapp_template TEXT NOT NULL DEFAULT E'Olá {nome}, tudo bem?\n\nO sistema me avisou aqui que sua assinatura venceu. Por isso o sinal deve ter caído.\n\nPra gente liberar de volta rapidinho, segue a chave:\n\n21980285635\n\nAssim que der, me manda o comprovante, por favor.';
