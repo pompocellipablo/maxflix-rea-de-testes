@@ -42,6 +42,9 @@ export const SERVER_COSTS: Record<string, number | null> = {
 export const DEFAULT_TEMPLATE =
   "Olá {nome}, tudo bem? Seu acesso vence em {vencimento}. Para continuar assistindo sem interrupção, faça a renovação no valor de R$ {valor}. Qualquer dúvida é só chamar!";
 
+export const DEFAULT_OVERDUE_TEMPLATE =
+  "Olá {nome}, tudo bem?\n\nO sistema me avisou aqui que sua assinatura venceu. Por isso o sinal deve ter caído.\n\nPra gente liberar de volta rapidinho, segue a chave:\n\n21980285635\n\nAssim que der, me manda o comprovante, por favor.";
+
 /** Parse a YYYY-MM-DD string as a local date at midnight (no timezone drift). */
 export function parseDate(value: string): Date {
   const [y, m, d] = value.split("-").map(Number);
@@ -169,6 +172,10 @@ export function whatsappLink(client: Client, template: string): string {
     .replaceAll("{servidor}", client.server)
     .replaceAll("{valor}", (client.paid || client.prev_paid || 0).toFixed(2).replace(".", ","));
   return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
+}
+
+export function renewalMessageLink(client: Client, template: string, overdueTemplate: string, base = today()): string {
+  return whatsappLink(client, getStatus(client, base).key === "vencido" ? overdueTemplate : template);
 }
 
 export function toCSV(clients: Client[]): string {
