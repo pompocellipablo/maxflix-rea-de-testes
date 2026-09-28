@@ -8,3 +8,8 @@
 - [x] Corrigir a data financeira em renovações vencidas e mensais, preservando a extensão antecipada.
 - [x] Permitir qualquer quantidade válida de meses pagos no fluxo de renovação e aplicar o crédito já existente.
 - [x] Testar cálculos e conferir a janela de renovação em telas pequenas.
+
+# Mensagem para vencidos
+- [x] Salvar uma segunda mensagem editável nas configurações.
+- [x] Usar a mensagem de vencidos somente para clientes vencidos, em ambas as visualizações.
+- [ ] Conferir o texto, os links e a edição no celular.

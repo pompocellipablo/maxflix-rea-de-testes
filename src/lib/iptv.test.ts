@@ -1,6 +1,6 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { isPackageCovered, renewalDates, type Client } from "./iptv";
+import { isPackageCovered, renewalDates, renewalMessageLink, type Client } from "./iptv";
 
 describe("datas da renovação", () => {
   const renewalDay = new Date(2026, 8, 27);
@@ -37,5 +37,20 @@ describe("datas da renovação", () => {
     assert.throws(() => renewalDates("2026-09-27", 0, renewalDay));
     assert.throws(() => renewalDates("2026-09-27", 2.5, renewalDay));
     assert.throws(() => renewalDates("2026-09-27", 121, renewalDay));
+  });
+});
+
+describe("mensagem de renovação", () => {
+  const client = { name: "Ana", login: "ana", whatsapp: "21999999999", due_date: "2026-09-27", paid: 0, prev_paid: 35, server: "Five" } as Client;
+  const base = new Date(2026, 8, 28);
+  test("vencido recebe somente a mensagem de cobrança", () => {
+    const url = new URL(renewalMessageLink(client, "Normal {nome}", "Venceu {nome}", base));
+    assert.equal(url.searchParams.get("text"), "Venceu Ana");
+  });
+  test("cliente que vence hoje ou depois recebe a mensagem normal", () => {
+    for (const due_date of ["2026-09-28", "2026-09-29"]) {
+      const url = new URL(renewalMessageLink({ ...client, due_date }, "Normal {nome}", "Venceu {nome}", base));
+      assert.equal(url.searchParams.get("text"), "Normal Ana");
+    }
   });
 });

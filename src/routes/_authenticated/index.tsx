@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import type { ImportRow } from "@/lib/import-clients";
 import {
   DEFAULT_TEMPLATE,
+  DEFAULT_OVERDUE_TEMPLATE,
   SERVERS,
   SERVER_COSTS,
   daysUntil,
@@ -18,10 +19,10 @@ import {
   isPackageCovered,
   nextDueDate,
   renewalDates,
+  renewalMessageLink,
   toISODate,
   today,
   toCSV,
-  whatsappLink,
   type Client,
 } from "@/lib/iptv";
 
@@ -158,11 +159,14 @@ function Painel() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("settings")
-        .select("whatsapp_template")
+        .select("whatsapp_template, overdue_whatsapp_template")
         .eq("id", "default")
         .maybeSingle();
       if (error) throw error;
-      return data?.whatsapp_template ?? DEFAULT_TEMPLATE;
+      return {
+        regular: data?.whatsapp_template ?? DEFAULT_TEMPLATE,
+        overdue: data?.overdue_whatsapp_template ?? DEFAULT_OVERDUE_TEMPLATE,
+      };
     },
   });
 
@@ -182,7 +186,8 @@ function Painel() {
     },
   });
 
-  const template = settingsQuery.data ?? DEFAULT_TEMPLATE;
+  const template = settingsQuery.data?.regular ?? DEFAULT_TEMPLATE;
+  const overdueTemplate = settingsQuery.data?.overdue ?? DEFAULT_OVERDUE_TEMPLATE;
   const clients = useMemo(() => clientsQuery.data ?? [], [clientsQuery.data]);
   const payments = useMemo(() => paymentsQuery.data ?? [], [paymentsQuery.data]);
 
@@ -769,6 +774,7 @@ function Painel() {
                             <RowActions
                               client={c}
                               template={template}
+                               overdueTemplate={overdueTemplate}
                               onRenew={() => renew(c)}
                               onEdit={() => {
                                 setEditing(c);
@@ -834,7 +840,7 @@ function Painel() {
                         Renovar
                       </button>
                       <a
-                        href={whatsappLink(c, template)}
+                        href={renewalMessageLink(c, template, overdueTemplate)}
                         target="_blank"
                         rel="noreferrer"
                         className="font-display flex-1 rounded-xl bg-panel2 py-2 text-center text-sm font-medium text-mist ring-1 ring-line"
@@ -913,11 +919,12 @@ function Painel() {
 
       {settingsOpen && (
         <TemplateDialog
-          value={template}
+          value={{ regular: template, overdue: overdueTemplate }}
           onClose={() => setSettingsOpen(false)}
           onSave={async (value) => {
-            await supabase.from("settings").update({ whatsapp_template: value }).eq("id", "default");
-            qc.invalidateQueries({ queryKey: ["settings"] });
+            const { error } = await supabase.from("settings").update({ whatsapp_template: value.regular, overdue_whatsapp_template: value.overdue }).eq("id", "default");
+            if (error) throw error;
+            await qc.invalidateQueries({ queryKey: ["settings"] });
             setSettingsOpen(false);
           }}
         />
@@ -1185,12 +1192,14 @@ function MetricCard({
 function RowActions({
   client,
   template,
+  overdueTemplate,
   onRenew,
   onEdit,
   onDelete,
 }: {
   client: Client;
   template: string;
+  overdueTemplate: string;
   onRenew: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -1201,7 +1210,7 @@ function RowActions({
         Renovar
       </button>
       <a
-        href={whatsappLink(client, template)}
+        href={renewalMessageLink(client, template, overdueTemplate)}
         target="_blank"
         rel="noreferrer"
         className="font-display text-xs font-medium text-ok hover:text-frost"
@@ -1223,39 +1232,66 @@ function TemplateDialog({
   onClose,
   onSave,
 }: {
-  value: string;
+  value: { regular: string; overdue: string };
   onClose: () => void;
-  onSave: (value: string) => void;
+  onSave: (value: { regular: string; overdue: string }) => Promise<void>;
 }) {
   const [text, setText] = useState(value);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const save = async () => {
+    setSaving(true);
+    setError("");
+    try {
+      await onSave(text);
+    } catch {
+      setError("Não foi possível salvar as mensagens. Tente novamente.");
+    } finally {
+      setSaving(false);
+    }
+  };
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-background/80 p-4 backdrop-blur-sm">
-      <section className="mx-auto mt-10 max-w-xl rounded-2xl bg-panel2/90 p-6 ring-1 ring-line">
-        <h2 className="font-display text-xl font-semibold">Mensagem de renovação</h2>
+      <section role="dialog" aria-modal="true" aria-label="Mensagens do WhatsApp" className="mx-auto mt-10 max-w-xl rounded-2xl bg-panel2/90 p-6 ring-1 ring-line">
+        <h2 className="font-display text-xl font-semibold">Mensagens do WhatsApp</h2>
         <p className="mt-1 text-sm text-mist">
           Use {"{nome}"}, {"{login}"}, {"{servidor}"}, {"{vencimento}"} e {"{valor}"} para preencher
           automaticamente.
         </p>
+        <label htmlFor="regular-message" className="mt-5 block text-sm font-medium text-frost">Renovação</label>
         <textarea
-          value={text}
+          id="regular-message"
+          value={text.regular}
           maxLength={1000}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => setText((current) => ({ ...current, regular: e.target.value }))}
           rows={6}
-          className="mt-4 w-full rounded-xl bg-panel px-3 py-2.5 text-sm text-frost ring-1 ring-line outline-none focus:ring-cyan/50"
+          className="mt-2 w-full rounded-xl bg-panel px-3 py-2.5 text-sm text-frost ring-1 ring-line outline-none focus:ring-cyan/50"
         />
+        <label htmlFor="overdue-message" className="mt-5 block text-sm font-medium text-frost">Clientes vencidos</label>
+        <textarea
+          id="overdue-message"
+          value={text.overdue}
+          maxLength={1000}
+          onChange={(e) => setText((current) => ({ ...current, overdue: e.target.value }))}
+          rows={8}
+          className="mt-2 w-full rounded-xl bg-panel px-3 py-2.5 text-sm text-frost ring-1 ring-line outline-none focus:ring-cyan/50"
+        />
+        {error && <p role="alert" className="mt-3 text-sm text-danger">{error}</p>}
         <div className="mt-4 flex gap-3">
-          <button
-            onClick={() => onSave(text)}
+          <Button
+            onClick={save}
+            disabled={saving}
             className="font-display rounded-xl bg-cyan px-4 py-2.5 text-sm font-semibold text-background ring-1 ring-cyan/40"
           >
-            Salvar mensagem
-          </button>
-          <button
+            {saving ? "Salvando..." : "Salvar mensagens"}
+          </Button>
+          <Button
             onClick={onClose}
-            className="font-display rounded-xl bg-panel px-4 py-2.5 text-sm font-medium text-mist ring-1 ring-line"
+            variant="outline"
+            className="font-display rounded-xl border-line bg-panel px-4 py-2.5 text-sm font-medium text-mist"
           >
             Cancelar
-          </button>
+          </Button>
         </div>
       </section>
     </div>
