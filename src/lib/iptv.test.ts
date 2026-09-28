@@ -1,6 +1,6 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { renewalDates } from "./iptv";
+import { isPackageCovered, renewalDates, type Client } from "./iptv";
 
 describe("datas da renovação", () => {
   const renewalDay = new Date(2026, 8, 27);
@@ -24,6 +24,13 @@ describe("datas da renovação", () => {
       dueDate: "2026-11-15",
       financialDueDate: "2027-04-15",
     });
+  });
+
+  test("crédito cobre só os ciclos anteriores ao vencimento financeiro", () => {
+    const dates = renewalDates("2026-08-25", 2, renewalDay);
+    const client = { due_date: dates.dueDate, financial_due_date: dates.financialDueDate } as Client;
+    assert.equal(isPackageCovered(client), true);
+    assert.equal(isPackageCovered({ ...client, due_date: dates.financialDueDate }), false);
   });
 
   test("limita meses inválidos", () => {

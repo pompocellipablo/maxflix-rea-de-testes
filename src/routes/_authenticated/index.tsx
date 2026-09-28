@@ -18,6 +18,8 @@ import {
   isPackageCovered,
   nextDueDate,
   renewalDates,
+  toISODate,
+  today,
   toCSV,
   whatsappLink,
   type Client,
@@ -343,6 +345,7 @@ function Painel() {
           server: client.server,
           amount: opts.paid,
           cost: opts.cost,
+          paid_at: toISODate(today()),
         })
         .then(() => qc.invalidateQueries({ queryKey: ["payments"] }));
     }
@@ -1309,7 +1312,7 @@ function RenewDialog({
                   : "bg-panel text-mist ring-line hover:bg-frost/5"
               }`}
             >
-              {m === 1 ? "1 mês" : `${m} meses`}
+              {m}
             </Button>
           ))}
         </div>
