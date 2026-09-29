@@ -89,6 +89,7 @@ function Painel() {
   const [importOpen, setImportOpen] = useState(false);
   const [forecastOpen, setForecastOpen] = useState(false);
   const [serverReportOpen, setServerReportOpen] = useState(false);
+  const [renewingBusy, setRenewingBusy] = useState(false);
   const [financialsHidden, setFinancialsHidden] = useState(false);
   const [financialsReady, setFinancialsReady] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -298,62 +299,70 @@ function Painel() {
 
   const [renewing, setRenewing] = useState<Client | null>(null);
 
-  const renew = (client: Client) => {
+  const performRenewal = async (client: Client, opts: { dueDate: string; financialDueDate: string; cost: number; monthlyPaid: number; prevPaid: number; paymentAmount: number; paymentCost: number }) => {
+    if (renewingBusy) return false;
+    setRenewingBusy(true);
+    try {
+      const { error } = await supabase.rpc("renew_client_with_credit", {
+        p_client_id: client.id,
+        p_expected_due_date: client.due_date,
+        p_due_date: opts.dueDate,
+        p_financial_due_date: opts.financialDueDate,
+        p_cost: opts.cost,
+        p_monthly_paid: opts.monthlyPaid,
+        p_prev_paid: opts.prevPaid,
+        p_payment_amount: opts.paymentAmount,
+        p_payment_cost: opts.paymentCost,
+      });
+      if (error) throw error;
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["clients"] }),
+        qc.invalidateQueries({ queryKey: ["payments"] }),
+        qc.invalidateQueries({ queryKey: ["server-credit-movements"] }),
+      ]);
+      return true;
+    } catch (error) {
+      setNotice(`Não foi possível renovar ${client.name}: ${error instanceof Error ? error.message : "Tente novamente."}`);
+      return false;
+    } finally {
+      setRenewingBusy(false);
+    }
+  };
+
+  const renew = async (client: Client) => {
     const newDue = nextDueDate(client.due_date);
     const coveredByPackage = client.financial_due_date && client.financial_due_date >= newDue;
     if (coveredByPackage) {
-      updateMutation.mutate({
-        id: client.id,
-        patch: {
-          due_date: newDue,
-          // Consome um ciclo do crédito antecipado; nunca cobra novamente.
-          cost: client.cost || client.prev_cost,
-          paid: 0,
-        },
+      const done = await performRenewal(client, {
+        dueDate: newDue,
+        financialDueDate: client.financial_due_date ?? newDue,
+        cost: client.cost || client.prev_cost,
+        monthlyPaid: 0,
+        prevPaid: client.prev_paid,
+        paymentAmount: 0,
+        paymentCost: 0,
       });
-      setNotice(
-        `Renovação sem custo — pacote pago até ${formatDate(client.financial_due_date)} (${client.name})`,
-      );
+      if (done) setNotice(`Pacote pago até ${formatDate(client.financial_due_date)} — 1 crédito descontado de ${client.server} (${client.name})`);
       return;
     }
     setRenewing(client);
   };
 
-  const confirmRenew = (
+  const confirmRenew = async (
     client: Client,
     opts: { months: number; cost: number; paid: number; monthlyCost: number; monthlyPaid: number },
   ) => {
     const { dueDate: newDue, financialDueDate } = renewalDates(client.due_date, opts.months);
-    const patch: {
-      due_date: string;
-      cost: number;
-      paid: number;
-      prev_cost: number;
-      prev_paid: number;
-      financial_due_date: string;
-    } = {
-      due_date: newDue,
-      financial_due_date: financialDueDate,
+    const done = await performRenewal(client, {
+      dueDate: newDue,
+      financialDueDate,
       cost: opts.monthlyCost,
-      paid: opts.monthlyPaid,
-      prev_cost: opts.monthlyCost,
-      // Guardar a mensalidade habitual, não o valor integral do adiantamento.
-      prev_paid: opts.months > 1 ? client.prev_paid || client.paid : opts.monthlyPaid,
-    };
-    updateMutation.mutate({ id: client.id, patch });
-    if (opts.paid > 0) {
-      void supabase
-        .from("payments")
-        .insert({
-          client_id: client.id,
-          client_name: client.name,
-          server: client.server,
-          amount: opts.paid,
-          cost: opts.cost,
-          paid_at: toISODate(today()),
-        })
-        .then(() => qc.invalidateQueries({ queryKey: ["payments"] }));
-    }
+      monthlyPaid: opts.monthlyPaid,
+      prevPaid: opts.months > 1 ? client.prev_paid || client.paid : opts.monthlyPaid,
+      paymentAmount: opts.paid,
+      paymentCost: opts.cost,
+    });
+    if (!done) return;
     setRenewing(null);
     setNotice(
       opts.months > 1
@@ -521,6 +530,9 @@ function Painel() {
           <div className="flex flex-wrap items-center gap-2 xl:ml-auto xl:justify-end">
             <Button asChild variant="outline" className="border-line bg-panel text-cyan hover:bg-panel2 hover:text-cyan">
               <Link to="/revendedores">Revendedores</Link>
+            </Button>
+            <Button asChild variant="outline" className="border-line bg-panel text-cyan hover:bg-panel2 hover:text-cyan">
+              <Link to="/creditos">Créditos</Link>
             </Button>
             <div className="hidden w-64 items-center gap-2 rounded-xl bg-panel px-3 py-2 ring-1 ring-line sm:flex">
               <span className="text-sm text-mist">⌕</span>
@@ -933,6 +945,7 @@ function Painel() {
       {renewing && (
         <RenewDialog
           client={renewing}
+          saving={renewingBusy}
           onCancel={() => setRenewing(null)}
           onConfirm={(opts) => confirmRenew(renewing, opts)}
         />
@@ -1300,10 +1313,12 @@ function TemplateDialog({
 
 function RenewDialog({
   client,
+  saving,
   onCancel,
   onConfirm,
 }: {
   client: Client;
+  saving: boolean;
   onCancel: () => void;
   onConfirm: (opts: {
     months: number;
@@ -1311,7 +1326,7 @@ function RenewDialog({
     paid: number;
     monthlyCost: number;
     monthlyPaid: number;
-  }) => void;
+  }) => void | Promise<void>;
 }) {
   const defaultCost = client.cost || client.prev_cost || SERVER_COSTS[client.server] || 0;
   const defaultPaid = client.paid || client.prev_paid || 0;
@@ -1412,17 +1427,18 @@ function RenewDialog({
         <div className="mt-5 flex gap-3">
           <Button
             type="button"
-            disabled={!validMonths}
+            disabled={!validMonths || saving}
             onClick={() =>
               onConfirm({ months, cost: totalCost, paid: paidValue, monthlyCost, monthlyPaid })
             }
             className="font-display rounded-xl bg-cyan px-4 py-2.5 text-sm font-semibold text-background ring-1 ring-cyan/40"
           >
-            Confirmar renovação
+            {saving ? "Renovando…" : "Confirmar renovação"}
           </Button>
           <Button
             type="button"
             variant="outline"
+            disabled={saving}
             onClick={onCancel}
             className="font-display rounded-xl bg-panel px-4 py-2.5 text-sm font-medium text-mist ring-1 ring-line"
           >
