@@ -1,0 +1,3 @@
+ALTER FUNCTION public.renew_client_with_credit(uuid,date,date,date,numeric,numeric,numeric,numeric,numeric) SECURITY INVOKER;
+DROP POLICY "Registrar compras e ajustes" ON public.server_credit_movements;
+CREATE POLICY "Registrar movimentações" ON public.server_credit_movements FOR INSERT TO authenticated WITH CHECK (kind IN ('initial', 'purchase', 'adjustment') OR (kind = 'renewal' AND client_id IS NOT NULL));

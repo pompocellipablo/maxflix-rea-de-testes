@@ -171,6 +171,71 @@ export type Database = {
         }
         Relationships: []
       }
+      server_credit_alerts: {
+        Row: {
+          created_at: string
+          minimum_balance: number
+          server: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          minimum_balance?: number
+          server: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          minimum_balance?: number
+          server?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      server_credit_movements: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          id: string
+          kind: string
+          note: string | null
+          occurred_on: string
+          quantity: number
+          server: string
+          updated_at: string
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          kind: string
+          note?: string | null
+          occurred_on?: string
+          quantity: number
+          server: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          note?: string | null
+          occurred_on?: string
+          quantity?: number
+          server?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "server_credit_movements_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       settings: {
         Row: {
           id: string
@@ -197,7 +262,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      renew_client_with_credit: {
+        Args: {
+          p_client_id: string
+          p_cost: number
+          p_due_date: string
+          p_expected_due_date: string
+          p_financial_due_date: string
+          p_monthly_paid: number
+          p_payment_amount?: number
+          p_payment_cost?: number
+          p_prev_paid: number
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

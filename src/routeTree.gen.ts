@@ -14,6 +14,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as EsqueciSenhaRouteImport } from './routes/esqueci-senha'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as AuthenticatedCreditosRouteImport } from './routes/_authenticated/creditos'
 import { Route as AuthenticatedRevendedoresRouteImport } from './routes/_authenticated/revendedores'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
@@ -40,6 +41,11 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedCreditosRoute = AuthenticatedCreditosRouteImport.update({
+  id: '/creditos',
+  path: '/creditos',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedRevendedoresRoute =
   AuthenticatedRevendedoresRouteImport.update({
     id: '/revendedores',
@@ -52,12 +58,14 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/creditos': typeof AuthenticatedCreditosRoute
   '/revendedores': typeof AuthenticatedRevendedoresRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/creditos': typeof AuthenticatedCreditosRoute
   '/revendedores': typeof AuthenticatedRevendedoresRoute
   '/': typeof AuthenticatedIndexRoute
 }
@@ -67,21 +75,34 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/_authenticated/creditos': typeof AuthenticatedCreditosRoute
   '/_authenticated/revendedores': typeof AuthenticatedRevendedoresRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/auth' | '/esqueci-senha' | '/reset-password' | '/revendedores'
+    | '/'
+    | '/auth'
+    | '/esqueci-senha'
+    | '/reset-password'
+    | '/creditos'
+    | '/revendedores'
   fileRoutesByTo: FileRoutesByTo
-  to: '/auth' | '/esqueci-senha' | '/reset-password' | '/revendedores' | '/'
+  to:
+    | '/auth'
+    | '/esqueci-senha'
+    | '/reset-password'
+    | '/creditos'
+    | '/revendedores'
+    | '/'
   id:
     | '__root__'
     | '/_authenticated'
     | '/auth'
     | '/esqueci-senha'
     | '/reset-password'
+    | '/_authenticated/creditos'
     | '/_authenticated/revendedores'
     | '/_authenticated/'
   fileRoutesById: FileRoutesById
@@ -130,6 +151,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/creditos': {
+      id: '/_authenticated/creditos'
+      path: '/creditos'
+      fullPath: '/creditos'
+      preLoaderRoute: typeof AuthenticatedCreditosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/revendedores': {
       id: '/_authenticated/revendedores'
       path: '/revendedores'
@@ -141,11 +169,13 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedCreditosRoute: typeof AuthenticatedCreditosRoute
   AuthenticatedRevendedoresRoute: typeof AuthenticatedRevendedoresRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedCreditosRoute: AuthenticatedCreditosRoute,
   AuthenticatedRevendedoresRoute: AuthenticatedRevendedoresRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
 }
