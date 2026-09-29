@@ -171,6 +171,27 @@ export type Database = {
         }
         Relationships: []
       }
+      server_credit_alerts: {
+        Row: {
+          created_at: string
+          minimum_balance: number
+          server: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          minimum_balance?: number
+          server: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          minimum_balance?: number
+          server?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       server_credit_movements: {
         Row: {
           client_id: string | null
