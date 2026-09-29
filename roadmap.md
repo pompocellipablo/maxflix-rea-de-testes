@@ -13,3 +13,9 @@
 - [x] Salvar uma segunda mensagem editável nas configurações.
 - [x] Usar a mensagem de vencidos somente para clientes vencidos, em ambas as visualizações.
 - [ ] Conferir o texto, os links e a edição no celular.
+
+# Créditos dos servidores
+- [ ] Informar saldo inicial e compras por servidor, com histórico e ajustes.
+- [ ] Descontar um crédito por renovação mensal de cliente, inclusive pacote já pago; não descontar vendas a revendedores.
+- [ ] Alertar quando o saldo chegar ao mínimo escolhido e prever necessidade para hoje, 5 e 10 dias.
+- [ ] Conferir renovação, saldos e alertas em tela pequena e grande.
