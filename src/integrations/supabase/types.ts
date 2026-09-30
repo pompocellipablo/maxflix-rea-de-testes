@@ -21,6 +21,7 @@ export type Database = {
           due_date: string
           financial_due_date: string | null
           id: string
+          last_message_date: string | null
           login: string
           name: string
           paid: number
@@ -36,6 +37,7 @@ export type Database = {
           due_date: string
           financial_due_date?: string | null
           id?: string
+          last_message_date?: string | null
           login: string
           name: string
           paid?: number
@@ -51,6 +53,7 @@ export type Database = {
           due_date?: string
           financial_due_date?: string | null
           id?: string
+          last_message_date?: string | null
           login?: string
           name?: string
           paid?: number
