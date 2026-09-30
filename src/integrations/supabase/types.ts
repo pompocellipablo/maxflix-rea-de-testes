@@ -20,7 +20,6 @@ export type Database = {
           created_at: string
           due_date: string
           financial_due_date: string | null
-          last_message_date: string | null
           id: string
           login: string
           name: string
@@ -36,7 +35,6 @@ export type Database = {
           created_at?: string
           due_date: string
           financial_due_date?: string | null
-          last_message_date?: string | null
           id?: string
           login: string
           name: string
@@ -52,7 +50,6 @@ export type Database = {
           created_at?: string
           due_date?: string
           financial_due_date?: string | null
-          last_message_date?: string | null
           id?: string
           login?: string
           name?: string
