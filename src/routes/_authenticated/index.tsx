@@ -93,10 +93,33 @@ function Painel() {
   const [financialsHidden, setFinancialsHidden] = useState(false);
   const [financialsReady, setFinancialsReady] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [currentDate, setCurrentDate] = useState(() => toISODate(today()));
+  const [messageBusyIds, setMessageBusyIds] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     setFinancialsHidden(window.localStorage.getItem("maxflix-hide-financials") === "true");
     setFinancialsReady(true);
+  }, []);
+
+  useEffect(() => {
+    let midnightTimer: number | undefined;
+
+    const refreshCurrentDate = () => setCurrentDate(toISODate(today()));
+    const scheduleMidnightRefresh = () => {
+      const now = new Date();
+      const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      midnightTimer = window.setTimeout(() => {
+        refreshCurrentDate();
+        scheduleMidnightRefresh();
+      }, nextMidnight.getTime() - now.getTime() + 100);
+    };
+
+    scheduleMidnightRefresh();
+    window.addEventListener("focus", refreshCurrentDate);
+    return () => {
+      if (midnightTimer !== undefined) window.clearTimeout(midnightTimer);
+      window.removeEventListener("focus", refreshCurrentDate);
+    };
   }, []);
 
   const toggleFinancials = () => {
@@ -193,6 +216,41 @@ function Painel() {
   const payments = useMemo(() => paymentsQuery.data ?? [], [paymentsQuery.data]);
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["clients"] });
+
+  const markRenewalMessageSent = async (client: Client) => {
+    const sentOn = toISODate(today());
+    if (client.last_message_date === sentOn || messageBusyIds.has(client.id)) return;
+
+    setCurrentDate(sentOn);
+    setMessageBusyIds((current) => new Set(current).add(client.id));
+    qc.setQueryData<Client[]>(["clients"], (current) =>
+      current?.map((item) =>
+        item.id === client.id ? { ...item, last_message_date: sentOn } : item,
+      ),
+    );
+
+    try {
+      const { error } = await supabase
+        .from("clients")
+        .update({ last_message_date: sentOn })
+        .eq("id", client.id);
+      if (error) throw error;
+      await invalidate();
+    } catch (error) {
+      await invalidate();
+      setNotice(
+        `O WhatsApp foi aberto, mas não foi possível registrar a cobrança de ${client.name}: ${
+          error instanceof Error ? error.message : "Tente novamente."
+        }`,
+      );
+    } finally {
+      setMessageBusyIds((current) => {
+        const next = new Set(current);
+        next.delete(client.id);
+        return next;
+      });
+    }
+  };
 
   const saveMutation = useMutation({
     mutationFn: async ({ draft, id }: { draft: ClientDraft; id: string | null }) => {
@@ -753,6 +811,8 @@ function Painel() {
                   <tbody>
                     {filtered.map((c) => {
                       const status = getStatus(c);
+                      const chargedToday = c.last_message_date === currentDate;
+                      const messageBusy = messageBusyIds.has(c.id);
                       return (
                         <tr
                           key={c.id}
@@ -780,14 +840,17 @@ function Painel() {
                             {money(c.paid - c.cost)}
                           </td>
                           <td className="px-4 py-3">
-                            <StatusBadge status={status} />
+                            {chargedToday ? <ChargedTodayBadge /> : <StatusBadge status={status} />}
                           </td>
                           <td className="px-4 py-3 text-right whitespace-nowrap">
                             <RowActions
                               client={c}
                               template={template}
                                overdueTemplate={overdueTemplate}
+                              chargedToday={chargedToday}
+                              messageBusy={messageBusy}
                               onRenew={() => renew(c)}
+                              onMessage={() => void markRenewalMessageSent(c)}
                               onEdit={() => {
                                 setEditing(c);
                                 setFormOpen(true);
@@ -806,6 +869,8 @@ function Painel() {
             <section className="mt-4 space-y-3 md:hidden">
               {filtered.map((c) => {
                 const status = getStatus(c);
+                const chargedToday = c.last_message_date === currentDate;
+                const messageBusy = messageBusyIds.has(c.id);
                 return (
                   <div
                     key={c.id}
@@ -822,7 +887,7 @@ function Painel() {
                           {c.login} · {c.server}
                         </p>
                       </div>
-                      <StatusBadge status={status} />
+                      {chargedToday ? <ChargedTodayBadge /> : <StatusBadge status={status} />}
                     </div>
                     <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
                       <div>
@@ -851,14 +916,25 @@ function Painel() {
                       >
                         Renovar
                       </button>
-                      <a
-                        href={renewalMessageLink(c, template, overdueTemplate)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="font-display flex-1 rounded-xl bg-panel2 py-2 text-center text-sm font-medium text-mist ring-1 ring-line"
-                      >
-                        Enviar renovação
-                      </a>
+                      {chargedToday || messageBusy ? (
+                        <button
+                          type="button"
+                          disabled
+                          className="font-display flex-1 cursor-not-allowed rounded-xl bg-frost/5 py-2 text-center text-sm font-medium text-mist/60 ring-1 ring-line"
+                        >
+                          {chargedToday ? "Cobrado Hoje" : "Registrando..."}
+                        </button>
+                      ) : (
+                        <a
+                          href={renewalMessageLink(c, template, overdueTemplate)}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={() => void markRenewalMessageSent(c)}
+                          className="font-display flex-1 rounded-xl bg-panel2 py-2 text-center text-sm font-medium text-mist ring-1 ring-line"
+                        >
+                          Enviar renovação
+                        </a>
+                      )}
                       <button
                         onClick={() => {
                           setEditing(c);
@@ -1202,18 +1278,33 @@ function MetricCard({
   );
 }
 
+function ChargedTodayBadge() {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-frost/10 px-2.5 py-1 text-xs font-medium text-mist ring-1 ring-line whitespace-nowrap">
+      <span className="size-1.5 rounded-full bg-mist" />
+      Cobrado Hoje
+    </span>
+  );
+}
+
 function RowActions({
   client,
   template,
   overdueTemplate,
+  chargedToday,
+  messageBusy,
   onRenew,
+  onMessage,
   onEdit,
   onDelete,
 }: {
   client: Client;
   template: string;
   overdueTemplate: string;
+  chargedToday: boolean;
+  messageBusy: boolean;
   onRenew: () => void;
+  onMessage: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -1222,14 +1313,25 @@ function RowActions({
       <button onClick={onRenew} className="font-display text-xs font-medium text-cyan hover:text-frost">
         Renovar
       </button>
-      <a
-        href={renewalMessageLink(client, template, overdueTemplate)}
-        target="_blank"
-        rel="noreferrer"
-        className="font-display text-xs font-medium text-ok hover:text-frost"
-      >
-        Enviar renovação
-      </a>
+      {chargedToday || messageBusy ? (
+        <button
+          type="button"
+          disabled
+          className="font-display cursor-not-allowed text-xs font-medium text-mist/60"
+        >
+          {chargedToday ? "Cobrado Hoje" : "Registrando..."}
+        </button>
+      ) : (
+        <a
+          href={renewalMessageLink(client, template, overdueTemplate)}
+          target="_blank"
+          rel="noreferrer"
+          onClick={onMessage}
+          className="font-display text-xs font-medium text-ok hover:text-frost"
+        >
+          Enviar renovação
+        </a>
+      )}
       <button onClick={onEdit} className="font-display text-xs font-medium text-mist hover:text-frost">
         Editar
       </button>

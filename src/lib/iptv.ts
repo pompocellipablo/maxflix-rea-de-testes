@@ -7,6 +7,7 @@ export type Client = {
   paid: number;
   due_date: string;
   financial_due_date: string | null;
+  last_message_date?: string | null;
   whatsapp: string | null;
   prev_cost: number;
   prev_paid: number;
